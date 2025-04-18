@@ -1,10 +1,10 @@
-// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to ALLOWED)
+// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to BLOCKED - CORRECTED STRUCTURE)
 
 const fetch = require('node-fetch');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
-// --- Helper Functions (Unchanged - with subdomain fix) ---
+// --- Helper Functions (with subdomain fix) ---
 function extractScribdInfo(url) {
      if (!url || typeof url !== 'string') { throw new Error('Invalid URL provided for extraction.'); }
      const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
@@ -22,8 +22,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    // **** SETTING: Hardcode blockScripts to false ****
-    const blockScripts = false;
+    // **** SETTING: Hardcode blockScripts to true ****
+    const blockScripts = true;
 
     const { scribdUrl } = req.body;
     if (!scribdUrl || typeof scribdUrl !== 'string') {
@@ -31,108 +31,125 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
     }
 
-    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show false
+    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show true
 
-    let browser = null, page = null, capturedLink = null, processingError = null;
+    let browser = null;
+    let page = null;
+    let capturedLink = null; // This will be populated by the 'response' listener
+    let processingError = null; // To store errors from page events
 
     try {
         const { docId, title, titleSlug } = extractScribdInfo(scribdUrl);
         const ilideLink = generateIlideLink(docId, titleSlug);
         console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
 
-        // Define Puppeteer Script String
-        const puppeteerScript = `
-            async function runPuppeteer({ page, context }) {
-                const { ilideLink, blockScripts } = context; // blockScripts will be false here
-                let capturedLink = null;
-                let navigationError = null;
-                console.log('Pptr: Script started. blockScripts=${blockScripts}. URL:', ilideLink);
-
-                // Request Interception
-                await page.setRequestInterception(true);
-                page.on('request', (request) => {
-                    const resourceType = request.resourceType();
-                    const blockList = ['image', 'stylesheet', 'font', 'media'];
-                    // **** Script Blocking is INACTIVE ****
-                    if (blockScripts && resourceType === 'script') { // This condition will be false
-                         request.abort();
-                    } else if (blockList.includes(resourceType)) {
-                        request.abort(); // Still block other resources
-                    } else {
-                        request.continue(); // Allow scripts and others
-                    }
-                });
-
-                // Response Listener
-                page.on('response', async (response) => {
-                     const url = response.url();
-                     if (url.includes('viewer/web/viewer.html') && url.includes('file=')) {
-                        try {
-                             const urlObj = new URL(url); const fileParam = urlObj.searchParams.get('file');
-                             if (fileParam) { let decodedLink = decodeURIComponent(fileParam); try { decodedLink = decodeURIComponent(decodedLink); } catch(e){} capturedLink = decodedLink; console.log('Pptr: Captured target link:', capturedLink); }
-                        } catch (err) { console.error('Pptr: Error parsing viewer URL:', err.message); }
-                     }
-                });
-
-                // Page error listeners
-                page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
-                page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
-
-
-                // Navigation
-                try {
-                    console.log('Pptr: Navigating (using domcontentloaded)...');
-                    await page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 });
-                    console.log('Pptr: DOMContentLoaded fired.');
-                    // **** Using longer wait because scripts are allowed ****
-                    const postNavWait = 1500;
-                    console.log(\`Pptr: Waiting \${postNavWait}ms post-DOM load...\`);
-                    await new Promise(resolve => setTimeout(resolve, postNavWait));
-                    console.log('Pptr: Post-DOM wait finished.');
-                } catch (error) {
-                    console.error('Pptr: Navigation/processing error:', error);
-                    navigationError = error;
-                }
-
-                // Check results
-                if (capturedLink) {
-                    console.log('Pptr: Link captured, returning it.');
-                    return capturedLink;
-                } else if (navigationError) {
-                    console.error('Pptr: No link captured & navigation failed.');
-                    throw navigationError;
-                } else {
-                    console.error('Pptr: Navigation seemingly succeeded but target link response not detected.');
-                    throw new Error('Download link response not detected on ilide.info.');
-                }
-            } // End of runPuppeteer function definition
-        `; // End of puppeteerScript template literal
-
         // Launch Puppeteer
         console.log('[Vercel Fn] Launching browser via @sparticuz/chromium...');
         browser = await puppeteer.launch({
-             args: chromium.args, defaultViewport: chromium.defaultViewport, executablePath: await chromium.executablePath(), headless: chromium.headless, ignoreHTTPSErrors: true
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true
         });
+        console.log('[Vercel Fn] Browser launched.');
+
         page = await browser.newPage();
+        console.log('[Vercel Fn] New page created.');
 
-        // Execute Script
-        capturedLink = await page.evaluate(`(${puppeteerScript})(arguments[0])`, { page, context: { ilideLink, blockScripts } });
+        // --- Setup Listeners and Interception BEFORE navigation ---
+        page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
+        page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
-        // Handle Success
+        // Response Listener - This runs in Node context and sets the outer 'capturedLink'
+        page.on('response', async (response) => {
+             const url = response.url();
+             // Be specific to avoid capturing unrelated viewer instances
+             if (url.startsWith('https://ilide.info/') && url.includes('/viewer/web/viewer.html') && url.includes('file=')) {
+                try {
+                     const urlObj = new URL(url);
+                     const fileParam = urlObj.searchParams.get('file');
+                     if (fileParam) {
+                         let decodedLink = decodeURIComponent(fileParam);
+                         try { decodedLink = decodeURIComponent(decodedLink); } catch(e){}
+                         // Only set if not already set, prevent potential race conditions if multiple responses match somehow
+                         if (!capturedLink) {
+                            capturedLink = decodedLink;
+                            console.log('Pptr: Captured target link:', capturedLink);
+                         }
+                     }
+                } catch (err) { console.error('Pptr: Error parsing viewer URL:', err.message); }
+             }
+        });
+
+        // Request Interception
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const resourceType = request.resourceType();
+            const blockList = ['image', 'stylesheet', 'font', 'media'];
+            // Script Blocking is ACTIVE
+            if (blockScripts && resourceType === 'script') {
+                 console.log('Pptr: Blocking Script:', request.url().substring(0, 80));
+                 request.abort();
+            } else if (blockList.includes(resourceType)) {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+        // --- End Setup ---
+
+        // Navigation
+        console.log('Pptr: Navigating (using domcontentloaded)...');
+        // Use a Promise.all to race navigation against potential early link capture or errors
+        await Promise.race([
+             page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 }),
+             // Add a promise that resolves if the link is captured early by the listener
+             new Promise((resolve, reject) => {
+                 const checkLinkInterval = setInterval(() => {
+                     if (capturedLink) {
+                         console.log('Pptr: Link captured during navigation wait.');
+                         clearInterval(checkLinkInterval);
+                         resolve(); // Resolve early if link found
+                     }
+                     if (processingError) {
+                         console.log('Pptr: Page error detected during navigation wait.');
+                         clearInterval(checkLinkInterval);
+                         reject(processingError); // Reject if page error occurs
+                     }
+                 }, 100); // Check every 100ms
+                 // Make sure this doesn't run forever if goto times out - rely on goto's timeout
+             })
+        ]).catch(err => {
+            // Handle errors from either page.goto or the checker promise
+            if (err.message.includes('timeout')) {
+                console.warn('Pptr: Navigation explicitly timed out.');
+                // Continue checking if link was captured just before timeout
+            } else {
+                 // Re-throw other errors like navigation errors or page crashes
+                 throw err;
+            }
+        });
+        console.log('Pptr: Navigation/Wait process completed.');
+
+
+        // Check Results (variable 'capturedLink' was set by the 'response' listener)
         if (capturedLink) {
-             console.log('[Vercel Fn] Script execution successful, link obtained.');
+             console.log('[Vercel Fn] Link captured. Preparing response.');
              res.status(200).json({ downloadLink: capturedLink });
+             // Close browser async after response
              browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
-             browser = null;
-             return;
+             browser = null; // Mark as handled
+             return; // Exit handler
         } else {
-             throw new Error('Processing completed without finding a download link.');
+             // If link wasn't captured
+             console.error('[Vercel Fn] Link not captured after navigation finished.');
+             throw processingError || new Error('Download link response not detected on ilide.info.');
         }
 
     } catch (error) {
         // Handle Errors
         console.error("[Vercel Fn] Error during processing:", error);
-        processingError = error;
         const statusCode = error.message.includes("Scribd URL format") ? 400
                          : error.message.includes("Navigation timeout") || error.message.toLowerCase().includes("timeout") ? 504
                          : 500;
@@ -140,7 +157,7 @@ module.exports = async (req, res) => {
     } finally {
         // Ensure browser is closed
         if (browser !== null) {
-            console.log('[Vercel Fn] Closing browser in finally block...');
+            console.log('[Vercel Fn] Closing browser in finally block (error or missed link)...');
             try { await browser.close(); } catch (closeErr) { console.error("[Vercel Fn] Error closing browser in finally block:", closeErr); }
         }
     }
