@@ -1,43 +1,99 @@
-<!-- File: your-vercel-project/scribd/scribd.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- ... (Keep Head, Stylesheet links etc.) ... -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Scribd Downloader (Vercel Direct)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* --- Keep all CSS styles --- */
+        /* --- All CSS Styles (Same as previous version with download button) --- */
+        :root { /* ... */ }
+        body.dark-mode { /* ... */ }
+        * { /* ... */ }
+        html { /* ... */ }
+        body { /* ... */ }
+        /* ... Keep ALL styles ... */
+        .download-button { /* ... */ }
+        #generated-url { /* ... */ }
+        .message { /* ... */ }
+        .loading-spinner { /* ... */ }
+        /* ... etc ... */
+        footer { /* ... */ }
+        /* ... Animations ... */
+        /* ... Responsive Adjustments ... */
     </style>
 </head>
 <body>
-    <!-- ... (Keep Theme Toggle Button, Container, Nav, Header, Wrapper, Input, Generate Button, Output Div, Footer) ... -->
+    <button id="theme-toggle" aria-label="Toggle theme"></button>
+
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="main-nav">
+          <ul>
+            <li><a href="/">Home</a></li>
+            <!-- Add other links -->
+          </ul>
+        </nav>
+
+        <!-- Header -->
+        <header class="main-page-header">
+           <h1>All Watched Over by Machines of Loving Grace</h1>
+           <p class="subhead">A digital salon of radical culture, critique, and aesthetics</p>
+        </header>
+
+        <main>
+            <div class="downloader-wrapper">
+                <h2>Scribd Downloader</h2>
+                <div class="input-group">
+                    <label for="file-link">Enter Scribd Link</label>
+                    <input type="text" id="file-link" name="file-link" placeholder="e.g., https://www.scribd.com/document/..." autocomplete="off"/>
+                </div>
+                <button onclick="processUrl()" id="generate-btn">
+                    Generate Link
+                </button>
+                <div id="generated-url">
+                    <!-- Button or error/success message appears here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+          <p>© 2025 Vernissage. All content under CC BY-NC-SA 4.0</p>
+          <p>Printed in Paris, Marseille, and Buenos Aires</p>
+        </footer>
+
+    </div> <!-- End container -->
 
     <script>
-        // --- Theme Toggle Script (Keep As Is) ---
-        // ...
+        // --- Theme Toggle Script ---
+        const themeToggle = document.getElementById('theme-toggle'); /* ... */ function applyTheme(theme) { /* ... */ } /* ... */ applyTheme(currentTheme); themeToggle.addEventListener('click', () => { /* ... */ });
 
         // --- Downloader Script ---
 
-        // Helper function to handle download button click (Unchanged)
-        function startDownload(buttonElement) { /* ... */ }
+        // Helper function to handle download button click
+        function startDownload(buttonElement) { /* ... same as before ... */ const url = buttonElement.dataset.downloadUrl; if (url) { window.open(url, '_blank'); } else { console.error('Download URL missing.'); } }
 
         async function processUrl() {
             const scribdUrlInput = document.getElementById('file-link');
             const outputDiv = document.getElementById('generated-url');
             const btn = document.getElementById('generate-btn');
             const scribdUrl = scribdUrlInput.value.trim();
-            const errorIcon = /* ... svg ... */;
-            const successIcon = /* ... svg ... */;
+            const errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+            const successIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
 
-            // ... (Clear output, check input, set loading state - same as before) ...
-             outputDiv.innerHTML = '';
-             if (!scribdUrl) { /* ... */ return; }
-             btn.disabled = true; scribdUrlInput.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
-             outputDiv.innerHTML = `<div class="message loading"><span>Contacting server... This usually takes 5-25 seconds on Vercel. Please wait.</span></div>`; // Updated message
+            outputDiv.innerHTML = '';
+            if (!scribdUrl) { outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`; return; }
 
+            // Update button state & loading message
+            btn.disabled = true; scribdUrlInput.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+            outputDiv.innerHTML = `<div class="message loading"><span>Contacting server... This usually takes 5-25 seconds on Vercel. Please wait.</span></div>`;
 
             try {
-                // **** CHANGE: Point fetch to the Vercel API path ****
-                const response = await fetch('/api/getScribdLink', { // LOCAL Vercel API path
+                // **** Fetch points to the Vercel API path ****
+                const response = await fetch('/api/getScribdLink', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scribdUrl: scribdUrl })
@@ -50,8 +106,8 @@
                 }
 
                 if (result.downloadLink) {
-                    // ... (Display success button - same as before) ...
-                     outputDiv.innerHTML = `
+                    // Display success button
+                    outputDiv.innerHTML = `
                         <p class="result-label">Download Ready:</p>
                         <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
                             Download Document
@@ -62,15 +118,15 @@
                 }
 
             } catch (error) {
-                 // ... (Handle errors, display timeout/retry message - same as before) ...
-                  console.error("Frontend Error:", error);
-                  let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
-                  if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'The request timed out or the server encountered an issue. This can happen occasionally. Please click "Generate Link" to try again.'; }
-                  else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format.` }
-                  outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
+                 // Display refined error messages
+                 console.error("Frontend Error:", error);
+                 let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
+                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'The request timed out or the server had an issue. This happens sometimes. Please click "Generate Link" to try again.'; }
+                 else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format and try again.`; }
+                 outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
             } finally {
-                 // ... (Re-enable button/input - same as before) ...
-                  btn.disabled = false; scribdUrlInput.disabled = false; btn.innerHTML = 'Generate Link';
+                 // Re-enable button/input
+                 btn.disabled = false; scribdUrlInput.disabled = false; btn.innerHTML = 'Generate Link';
             }
         }
     </script>
