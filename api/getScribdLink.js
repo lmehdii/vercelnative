@@ -1,16 +1,38 @@
-// File: your-vercel-project/api/getScribdLink.js
+// File: api/getScribdLink.js (For Vercel Deployment)
 
-const fetch = require('node-fetch'); // Still potentially useful for ilide link check maybe? Small dep.
+const fetch = require('node-fetch'); // Keep for potential future use or remove if unused
 const chromium = require('chrome-aws-lambda');
 const puppeteer = require('puppeteer-core');
 
 // --- Helper Functions (with subdomain fix) ---
 
 function extractScribdInfo(url) {
-     if (!url || typeof url !== 'string') { throw new Error('Invalid URL provided for extraction.'); }
-     const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
-     const match = url.match(regex);
-     if (match && match[1]) { const docId = match[1]; const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`; const title = titleSlug.replace(/-/g, ' '); console.log(`[Vercel Fn] Extracted via primary regex: ID=${docId}, Slug=${titleSlug}`); return { docId, title, titleSlug }; } else { const genericMatch = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/; if (genericMatch && genericMatch[1]) { const docId = genericMatch[1]; const titleSlug = `document-${docId}`; const title = `Document ${docId}`; console.warn("[Vercel Fn] Used generic Scribd URL matching."); return { docId, title, titleSlug }; } else { console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`); throw new Error('Invalid or unrecognized Scribd URL format.'); } }
+     if (!url || typeof url !== 'string') {
+        throw new Error('Invalid URL provided for extraction.');
+    }
+    // Regex with optional subdomain support
+    const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
+    const match = url.match(regex);
+    if (match && match[1]) {
+        const docId = match[1];
+        const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`;
+        const title = titleSlug.replace(/-/g, ' ');
+        console.log(`[Vercel Fn] Extracted via primary regex: ID=${docId}, Slug=${titleSlug}`);
+        return { docId, title, titleSlug };
+    } else {
+        // Generic regex with optional subdomain support
+        const genericMatch = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/;
+         if (genericMatch && genericMatch[1]) {
+             const docId = genericMatch[1];
+             const titleSlug = `document-${docId}`;
+             const title = `Document ${docId}`;
+             console.warn("[Vercel Fn] Used generic Scribd URL matching.");
+             return { docId, title, titleSlug };
+         } else {
+             console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`);
+            throw new Error('Invalid or unrecognized Scribd URL format.');
+         }
+    }
 }
 
 function generateIlideLink(docId, titleSlug) {
@@ -41,8 +63,9 @@ module.exports = async (req, res) => {
     console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`);
 
     let browser = null; // Declare browser outside try for finally block
-    let capturedLink = null; // Variable to hold the found link
-    let processingError = null; // Variable to hold processing errors
+    let page = null; // Declare page for potential cleanup
+    let capturedLink = null;
+    let processingError = null;
 
     try {
         // 1. Generate Links
@@ -51,37 +74,34 @@ module.exports = async (req, res) => {
         const ilideLink = generateIlideLink(docId, titleSlug);
         console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
 
-        // 2. Launch Puppeteer using chrome-aws-lambda
+        // 2. Launch Puppeteer
         console.log('[Vercel Fn] Launching browser...');
         const executablePath = await chromium.executablePath;
-        // Ensure executablePath is valid, otherwise Puppeteer might fail silently or throw error
         if (!executablePath) {
-             throw new Error("Chromium executable not found. Check chrome-aws-lambda installation.");
+             throw new Error("Chromium executable not found via chrome-aws-lambda.");
         }
 
         browser = await puppeteer.launch({
-            args: [...chromium.args, '--disable-web-security'], // Disable same-origin policy checks if needed for some interactions, use carefully
+            args: chromium.args, // Standard args
             defaultViewport: chromium.defaultViewport,
             executablePath: executablePath,
-            headless: chromium.headless, // Use headless mode from chrome-aws-lambda
+            headless: chromium.headless,
             ignoreHTTPSErrors: true
         });
         console.log('[Vercel Fn] Browser launched.');
 
-        const page = await browser.newPage();
+        page = await browser.newPage();
         console.log('[Vercel Fn] New page created.');
 
-        // 3. Set up page listeners and optimizations (directly on the page object)
+        // 3. Setup Page & Interception
         console.log('[Vercel Fn] Setting up request interception...');
         await page.setRequestInterception(true);
         page.on('request', (request) => {
             const resourceType = request.resourceType();
             const blockList = ['image', 'stylesheet', 'font', 'media'];
             if (blockScripts && resourceType === 'script') {
-                 // console.log('Pptr: Blocking Script:', request.url()); // Use simpler prefix
                  request.abort();
             } else if (blockList.includes(resourceType)) {
-                // console.log('Pptr: Blocking Resource:', resourceType, request.url());
                 request.abort();
             } else {
                 request.continue();
@@ -98,53 +118,49 @@ module.exports = async (req, res) => {
              }
         });
 
-        page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = error; }); // Catch page crashes
-        page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = error; }); // Catch JS errors on page
+        page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; }); // Store first error
+        page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
-        // 4. Navigate and wait
+        // 4. Navigate
         console.log('Pptr: Navigating (using domcontentloaded)...');
-        await page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 }); // Timeout slightly less than Vercel limit
+        await page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 });
         console.log('Pptr: DOMContentLoaded fired.');
 
         // Optional minimal wait after DOM load
         const postNavWait = blockScripts ? 500 : 1500;
         console.log(`Pptr: Waiting ${postNavWait}ms post-DOM load...`);
-        await new Promise(resolve => setTimeout(resolve, postNavWait));
+        await page.waitForTimeout(postNavWait); // Use Puppeteer's wait if available in this version, otherwise use Promise/setTimeout
+        // await new Promise(resolve => setTimeout(resolve, postNavWait)); // Alternative if page.waitForTimeout fails
         console.log('Pptr: Post-DOM wait finished.');
 
-        // 5. Close Browser EARLY if link found
+        // 5. Check Result & Close Browser
         if (capturedLink) {
-             console.log('[Vercel Fn] Link captured, closing browser...');
-             await browser.close();
-             browser = null; // Mark as closed
-             console.log('[Vercel Fn] Browser closed.');
-             return res.status(200).json({ downloadLink: capturedLink });
+             console.log('[Vercel Fn] Link captured.');
+             // Return success *before* closing browser in background (faster response to user)
+             res.status(200).json({ downloadLink: capturedLink });
+             // Close browser asynchronously after sending response
+             browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
+             browser = null; // Prevent finally block from trying again
+             return; // Exit function handler
         } else {
-             // If link wasn't captured after wait
-             console.error('[Vercel Fn] Link not captured after navigation and wait.');
-             // Throw an error to be caught by the outer catch block
+             // If link wasn't captured
+             console.error('[Vercel Fn] Link not captured after navigation/wait.');
              throw processingError || new Error('Download link response not detected on ilide.info.');
         }
 
     } catch (error) {
-        // Catch errors from URL parsing, Puppeteer launch, navigation, or thrown errors
+        // Catch errors from any step above
         console.error("[Vercel Fn] Error during processing:", error);
-        processingError = error; // Store error
-        // Ensure browser is closed in case of error before finally block
-        if (browser !== null) {
-            console.log('[Vercel Fn] Closing browser due to error...');
-            try { await browser.close(); } catch (closeErr) { console.error("[Vercel Fn] Error closing browser after error:", closeErr); }
-            browser = null;
-        }
+        processingError = error; // Store the error
         // Determine status code based on error type
         const statusCode = error.message.includes("Scribd URL format") ? 400
-                         : error.message.includes("Navigation timeout") ? 504 // Gateway Timeout
+                         : error.message.includes("Navigation timeout") || error.message.includes("timeout") ? 504 // Gateway Timeout
                          : 500; // Internal Server Error for others
         return res.status(statusCode).json({ error: error.message || 'An internal server error occurred.' });
     } finally {
-        // Final check to ensure browser is closed if somehow still open
+        // Ensure browser is closed if it wasn't closed successfully earlier
         if (browser !== null) {
-            console.warn('[Vercel Fn] Closing browser in finally block (should have been closed earlier).');
+            console.log('[Vercel Fn] Closing browser in finally block...');
             try { await browser.close(); } catch (closeErr) { console.error("[Vercel Fn] Error closing browser in finally block:", closeErr); }
         }
     }
