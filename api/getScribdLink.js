@@ -1,129 +1,145 @@
-// File: api/getScribdLink.js (Vercel)
+// File: api/getScribdLink.js (Vercel - Faster Version)
 
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // Already a dependency
 
-// --- Helper Functions (with subdomain fix) ---
+// --- Helper Functions (Unchanged) ---
 function extractScribdInfo(url) {
-  if (!url || typeof url !== 'string') {
-    throw new Error('Invalid URL provided for extraction.');
-  }
-
-  const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
-  const match = url.match(regex);
-
-  if (match && match[1]) {
-    const docId = match[1];
-    const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`;
-    console.log(`[Vercel Fn] Extracted via primary regex: ID=${docId}, Slug=${titleSlug}`);
-    return { docId, titleSlug };
-  }
-
-  const genericRegex = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/;
-  const genericMatch = url.match(genericRegex);
-  if (genericMatch && genericMatch[1]) {
-    const docId = genericMatch[1];
-    const titleSlug = `document-${docId}`;
-    console.warn("[Vercel Fn] Used generic Scribd URL matching.");
-    return { docId, titleSlug };
-  }
-
-  console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`);
-  throw new Error('Invalid or unrecognized Scribd URL format.');
+     if (!url || typeof url !== 'string') { throw new Error('Invalid URL provided for extraction.'); }
+     // Using a slightly more robust regex to capture different URL structures better initially
+     const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc|presentation|book|audiobook|embeds)\/(\d+)(?:\/([^?\/]+))?/;
+     const match = url.match(regex);
+     if (match && match[1]) {
+         const docId = match[1];
+         // Generate a simple slug if none is found in the URL
+         const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`;
+         const title = titleSlug.replace(/-/g, ' ');
+         console.log(`[Vercel Fn] Extracted: ID=${docId}, Slug=${titleSlug}`);
+         return { docId, title, titleSlug };
+     } else {
+         console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`);
+         throw new Error('Invalid or unrecognized Scribd URL format.');
+     }
 }
 
 function generateIlideLink(docId, titleSlug) {
-  const fileUrl = encodeURIComponent(
-    `https://scribd.vdownloaders.com/pdownload/${docId}%2F${titleSlug}`
-  );
-  const encodedTitle = encodeURIComponent(`<div><p>${titleSlug.replace(/-/g, ' ')}</p></div>`);
-  return `https://ilide.info/docgeneratev2` +
-         `?fileurl=${fileUrl}` +
-         `&title=${encodedTitle}` +
-         `&utm_source=scrfree&utm_medium=queue&utm_campaign=dl`;
+    // Keep original generation logic, ensure proper encoding
+    const fileUrl = encodeURIComponent(`https://scribd.vdownloaders.com/pdownload/${docId}%2F${titleSlug}`);
+    const titleWithSpaces = titleSlug.replace(/-/g, ' ');
+    // Simpler title encoding might be sufficient, test if original encoding is truly needed
+    // const encodedTitle = encodeURIComponent(`<div><p>${titleWithSpaces}</p></div>`); // Original
+    const encodedTitle = encodeURIComponent(titleWithSpaces); // Simpler title
+    return `https://ilide.info/docgeneratev2?fileurl=${fileUrl}&title=${encodedTitle}&utm_source=scrfree&utm_medium=queue&utm_campaign=dl`;
 }
 
-// --- Vercel Serverless Function Handler ---
+// Regular expression to find the viewer URL in the HTML content
+// Look for something like: ... src='/viewer/web/viewer.html?file=SOME_ENCODED_URL' ...
+// Make it flexible for single or double quotes and potential variations
+const viewerUrlRegex = /['"](\/viewer\/web\/viewer\.html\?file=([^'"]+))['"]/;
+
+// --- Vercel Serverless Function Handler (Faster Version) ---
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
-  }
-
-  const { scribdUrl } = req.body;
-  if (!scribdUrl || typeof scribdUrl !== 'string') {
-    console.error('[Vercel Fn] Invalid request body:', req.body);
-    return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
-  }
-
-  console.log(`[Vercel Fn] Request for: ${scribdUrl}`);
-
-  try {
-    // Extract document info and build ilide link
-    const { docId, titleSlug } = extractScribdInfo(scribdUrl);
-    const ilideLink = generateIlideLink(docId, titleSlug);
-    console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
-
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      'Referer': ilideLink
-    };
-
-    let downloadLink = null;
-
-    // 1) Try manual redirect capture
-    const redirectRes = await fetch(ilideLink, { redirect: 'manual', headers });
-    if (redirectRes.status >= 300 && redirectRes.status < 400) {
-      const location = redirectRes.headers.get('location');
-      if (location && location.includes('/viewer/web/viewer.html')) {
-        const urlObj = new URL(location, ilideLink);
-        const fileParam = urlObj.searchParams.get('file');
-        if (fileParam) {
-          downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
-          console.log('[Vercel Fn] Captured via redirect:', downloadLink);
-        }
-      }
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', ['POST']);
+        return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    // 2) Fallback: fetch HTML and robust regex parse
-    if (!downloadLink) {
-      const htmlRes = await fetch(ilideLink, { headers });
-      const html = await htmlRes.text();
-      console.log('[Vercel Fn] Fallback HTML length:', html.length);
-
-      // Try to find an iframe src containing the viewer URL
-      const iframeMatch = html.match(/<iframe[^>]+src="([^"<>]*viewer\/web\/viewer\.html\?file=[^"<>]+)"/);
-      if (iframeMatch) {
-        const viewerUrl = iframeMatch[1].startsWith('http') ? iframeMatch[1] : `https://ilide.info${iframeMatch[1]}`;
-        const urlObj = new URL(viewerUrl);
-        const fileParam = urlObj.searchParams.get('file');
-        if (fileParam) {
-          downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
-          console.log('[Vercel Fn] Captured via iframe src:', downloadLink);
-        }
-      }
-
-      // Generic pattern if iframe approach fails
-      if (!downloadLink) {
-        const genericMatch = html.match(/viewer\/web\/viewer\.html\?file=([^"'&\s]+)/);
-        if (genericMatch && genericMatch[1]) {
-          downloadLink = decodeURIComponent(decodeURIComponent(genericMatch[1]));
-          console.log('[Vercel Fn] Captured via generic parse:', downloadLink);
-        }
-      }
-
-      if (!downloadLink) {
-        console.error('[Vercel Fn] HTML parse failed. Sample:', html.slice(0, 200));
-        throw new Error('Download link parameter not found in HTML.');
-      }
+    const { scribdUrl } = req.body;
+    if (!scribdUrl || typeof scribdUrl !== 'string') {
+        console.error("[Vercel Fn] Invalid request body:", req.body);
+        return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
     }
 
-    // Return the captured download link
-    return res.status(200).json({ downloadLink });
+    console.log(`[Vercel Fn] Request for: ${scribdUrl} (Using fetch)`);
 
-  } catch (error) {
-    console.error('[Vercel Fn] Error during processing:', error);
-    const msg = error.message || 'Internal server error.';
-    const status = msg.includes('Scribd URL format') ? 400 : 500;
-    return res.status(status).json({ error: msg });
-  }
+    try {
+        const { docId, titleSlug } = extractScribdInfo(scribdUrl);
+        const ilideLink = generateIlideLink(docId, titleSlug);
+        console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
+
+        // --- Make Direct HTTP Request ---
+        console.log(`[Vercel Fn] Fetching ${ilideLink}...`);
+        const response = await fetch(ilideLink, {
+            method: 'GET',
+            headers: {
+                // Mimic a browser user-agent if necessary, but often not required
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                // Add Referer? Sometimes helpful, points back to where the request originated (conceptually)
+                 // 'Referer': 'https://google.com' // Or perhaps the original scribd URL? Test if needed.
+            },
+            // Set a reasonable timeout for the fetch request itself
+            timeout: 25000, // 25 seconds timeout for fetch
+        });
+
+        if (!response.ok) {
+            console.error(`[Vercel Fn] Failed to fetch ilide link. Status: ${response.status} ${response.statusText}`);
+            // Attempt to read body for more info if available
+            let errorBody = 'No error body available.';
+            try { errorBody = await response.text(); } catch (e) {/* ignore */}
+            console.error(`[Vercel Fn] Error body: ${errorBody.substring(0, 500)}`); // Log first 500 chars
+            throw new Error(`Failed to fetch from ilide.info. Status: ${response.status}`);
+        }
+
+        const htmlContent = await response.text();
+        console.log('[Vercel Fn] Successfully fetched ilide.info page content.');
+         // Optional: Log a snippet for debugging if needed
+         // console.log('[Vercel Fn] HTML Snippet:', htmlContent.substring(0, 500));
+
+        // --- Extract the Link from HTML ---
+        const match = htmlContent.match(viewerUrlRegex);
+
+        if (match && match[2]) {
+            let encodedFileParam = match[2];
+            // The original code sometimes double-decoded. Replicate that logic.
+            let decodedLink = decodeURIComponent(encodedFileParam);
+            try {
+                 // Attempt a second decode, might fail if already fully decoded
+                let doubleDecoded = decodeURIComponent(decodedLink);
+                // Simple check if second decode looks like a valid URL
+                if (doubleDecoded.startsWith('http://') || doubleDecoded.startsWith('https://')) {
+                     decodedLink = doubleDecoded;
+                }
+            } catch (e) {
+                // Ignore error, means it was likely only single-encoded
+                console.log('[Vercel Fn] Double decoding failed or not needed, using single decode result.');
+            }
+
+             // Basic validation: does it look like a plausible download URL?
+             if (!decodedLink || !(decodedLink.startsWith('http://') || decodedLink.startsWith('https://')) || decodedLink.length < 20) {
+                console.error('[Vercel Fn] Extracted link seems invalid:', decodedLink);
+                throw new Error('Failed to extract a valid download link from ilide.info response.');
+            }
+
+            console.log('[Vercel Fn] Successfully extracted download link:', decodedLink);
+            return res.status(200).json({ downloadLink: decodedLink });
+
+        } else {
+            console.error('[Vercel Fn] Could not find viewer URL pattern in ilide.info HTML.');
+             // Log more HTML if debugging is needed
+             // console.error('[Vercel Fn] Full HTML content length:', htmlContent.length);
+            throw new Error('Download link pattern not found on ilide.info.');
+        }
+
+    } catch (error) {
+        // Handle Errors
+        console.error("[Vercel Fn] Error during processing:", error);
+        const statusCode = error.message.includes("Scribd URL format") ? 400
+                         : error.message.includes("fetch") || error.message.includes("ilide.info") ? 502 // Bad Gateway if upstream fails
+                         : 500; // Internal Server Error for others
+        // Sanitize error message for client
+        let clientErrorMessage = 'An internal server error occurred.';
+        if (statusCode === 400 || statusCode === 502) {
+            clientErrorMessage = error.message;
+        }
+         // Avoid leaking internal details like specific regex failures in user-facing errors
+         if (error.message.includes("pattern not found")) {
+             clientErrorMessage = "Could not retrieve download link from the processing service.";
+         } else if (error.message.includes("valid download link")) {
+             clientErrorMessage = "Processing service returned an invalid link.";
+         }
+
+        return res.status(statusCode).json({ error: clientErrorMessage });
+    }
+    // No finally block needed as there's no browser to close
 };
