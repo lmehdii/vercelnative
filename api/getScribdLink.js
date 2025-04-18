@@ -1,4 +1,4 @@
-// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to BLOCKED - CORRECTED STRUCTURE)
+// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to ALLOWED)
 
 const fetch = require('node-fetch');
 const chromium = require('@sparticuz/chromium');
@@ -22,8 +22,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    // **** SETTING: Hardcode blockScripts to true ****
-    const blockScripts = true;
+    // **** SETTING: Hardcode blockScripts to false ****
+    const blockScripts = false;
 
     const { scribdUrl } = req.body;
     if (!scribdUrl || typeof scribdUrl !== 'string') {
@@ -31,12 +31,9 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
     }
 
-    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show true
+    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show false
 
-    let browser = null;
-    let page = null;
-    let capturedLink = null; // This will be populated by the 'response' listener
-    let processingError = null; // To store errors from page events
+    let browser = null, page = null, capturedLink = null, processingError = null;
 
     try {
         const { docId, title, titleSlug } = extractScribdInfo(scribdUrl);
@@ -64,16 +61,13 @@ module.exports = async (req, res) => {
         // Response Listener - This runs in Node context and sets the outer 'capturedLink'
         page.on('response', async (response) => {
              const url = response.url();
-             // Be specific to avoid capturing unrelated viewer instances
              if (url.startsWith('https://ilide.info/') && url.includes('/viewer/web/viewer.html') && url.includes('file=')) {
                 try {
-                     const urlObj = new URL(url);
-                     const fileParam = urlObj.searchParams.get('file');
+                     const urlObj = new URL(url); const fileParam = urlObj.searchParams.get('file');
                      if (fileParam) {
                          let decodedLink = decodeURIComponent(fileParam);
                          try { decodedLink = decodeURIComponent(decodedLink); } catch(e){}
-                         // Only set if not already set, prevent potential race conditions if multiple responses match somehow
-                         if (!capturedLink) {
+                         if (!capturedLink) { // Set only once
                             capturedLink = decodedLink;
                             console.log('Pptr: Captured target link:', capturedLink);
                          }
@@ -86,49 +80,42 @@ module.exports = async (req, res) => {
         await page.setRequestInterception(true);
         page.on('request', (request) => {
             const resourceType = request.resourceType();
-            const blockList = ['image', 'stylesheet', 'font', 'media'];
-            // Script Blocking is ACTIVE
-            if (blockScripts && resourceType === 'script') {
-                 console.log('Pptr: Blocking Script:', request.url().substring(0, 80));
+            const blockList = ['image', 'stylesheet', 'font', 'media']; // Block non-essential visual/media resources
+            // **** Script Blocking is INACTIVE ****
+            if (blockScripts && resourceType === 'script') { // This condition will always be false
                  request.abort();
             } else if (blockList.includes(resourceType)) {
-                request.abort();
+                // console.log('Pptr: Blocking Resource:', resourceType, request.url().substring(0, 80));
+                request.abort(); // Still block images, css, fonts etc.
             } else {
-                request.continue();
+                request.continue(); // Allow scripts and other necessary resources
             }
         });
         // --- End Setup ---
 
         // Navigation
         console.log('Pptr: Navigating (using domcontentloaded)...');
-        // Use a Promise.all to race navigation against potential early link capture or errors
         await Promise.race([
              page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 }),
-             // Add a promise that resolves if the link is captured early by the listener
+             // Add a promise that resolves if the link is captured early or rejects on page error
              new Promise((resolve, reject) => {
-                 const checkLinkInterval = setInterval(() => {
+                 const checkInterval = setInterval(() => {
                      if (capturedLink) {
                          console.log('Pptr: Link captured during navigation wait.');
-                         clearInterval(checkLinkInterval);
-                         resolve(); // Resolve early if link found
+                         clearInterval(checkInterval);
+                         resolve();
                      }
                      if (processingError) {
                          console.log('Pptr: Page error detected during navigation wait.');
-                         clearInterval(checkLinkInterval);
-                         reject(processingError); // Reject if page error occurs
+                         clearInterval(checkInterval);
+                         reject(processingError);
                      }
-                 }, 100); // Check every 100ms
-                 // Make sure this doesn't run forever if goto times out - rely on goto's timeout
+                 }, 100);
              })
         ]).catch(err => {
-            // Handle errors from either page.goto or the checker promise
             if (err.message.includes('timeout')) {
                 console.warn('Pptr: Navigation explicitly timed out.');
-                // Continue checking if link was captured just before timeout
-            } else {
-                 // Re-throw other errors like navigation errors or page crashes
-                 throw err;
-            }
+            } else { throw err; } // Re-throw other errors
         });
         console.log('Pptr: Navigation/Wait process completed.');
 
@@ -137,12 +124,10 @@ module.exports = async (req, res) => {
         if (capturedLink) {
              console.log('[Vercel Fn] Link captured. Preparing response.');
              res.status(200).json({ downloadLink: capturedLink });
-             // Close browser async after response
              browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
-             browser = null; // Mark as handled
-             return; // Exit handler
+             browser = null;
+             return;
         } else {
-             // If link wasn't captured
              console.error('[Vercel Fn] Link not captured after navigation finished.');
              throw processingError || new Error('Download link response not detected on ilide.info.');
         }
