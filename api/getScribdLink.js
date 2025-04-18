@@ -1,4 +1,4 @@
-// File: api/getScribdLink.js (Vercel Deployment - with Configurable Script Blocking)
+// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to BLOCKED)
 
 const fetch = require('node-fetch');
 const chromium = require('@sparticuz/chromium');
@@ -22,54 +22,49 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    // **** Read environment variable for script blocking ****
-    const blockScripts = process.env.BLOCK_SCRIPTS === 'true';
+    // **** SETTING: Hardcode blockScripts to true ****
+    const blockScripts = true;
 
     const { scribdUrl } = req.body;
     if (!scribdUrl || typeof scribdUrl !== 'string') {
+        console.error("[Vercel Fn] Invalid request body:", req.body);
         return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
     }
 
-    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`);
+    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show true
 
-    let browser = null;
-    let page = null;
-    let capturedLink = null;
-    let processingError = null;
+    let browser = null, page = null, capturedLink = null, processingError = null;
 
     try {
         const { docId, title, titleSlug } = extractScribdInfo(scribdUrl);
         const ilideLink = generateIlideLink(docId, titleSlug);
         console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
 
-        // **** Define Puppeteer Script String ****
-        // This string will be executed by Puppeteer on Vercel
+        // Define Puppeteer Script String
         const puppeteerScript = `
-            // This code runs inside the Puppeteer environment on Vercel
             async function runPuppeteer({ page, context }) {
-                const { ilideLink, blockScripts } = context; // Receive settings from context
+                const { ilideLink, blockScripts } = context; // blockScripts will be true here
                 let capturedLink = null;
                 let navigationError = null;
                 console.log('Pptr: Script started. blockScripts=${blockScripts}. URL:', ilideLink);
 
-                // Request Interception (conditionally blocks scripts)
+                // Request Interception
                 await page.setRequestInterception(true);
                 page.on('request', (request) => {
                     const resourceType = request.resourceType();
                     const blockList = ['image', 'stylesheet', 'font', 'media'];
-                    // **** Conditional Script Blocking ****
+                    // **** Script Blocking is ACTIVE ****
                     if (blockScripts && resourceType === 'script') {
-                         console.log('Pptr: Blocking Script:', request.url().substring(0, 80)); // Log truncated URL
+                         console.log('Pptr: Blocking Script:', request.url().substring(0, 80));
                          request.abort();
                     } else if (blockList.includes(resourceType)) {
-                        // console.log('Pptr: Blocking Resource:', resourceType, request.url().substring(0, 80));
                         request.abort();
                     } else {
                         request.continue();
                     }
                 });
 
-                // Response Listener (unchanged)
+                // Response Listener
                 page.on('response', async (response) => {
                      const url = response.url();
                      if (url.includes('viewer/web/viewer.html') && url.includes('file=')) {
@@ -80,7 +75,7 @@ module.exports = async (req, res) => {
                      }
                 });
 
-                // Page error listeners (unchanged)
+                // Page error listeners
                 page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
                 page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
@@ -89,12 +84,11 @@ module.exports = async (req, res) => {
                     console.log('Pptr: Navigating (using domcontentloaded)...');
                     await page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 });
                     console.log('Pptr: DOMContentLoaded fired.');
-
-                    const postNavWait = blockScripts ? 500 : 1500; // Adjust wait based on script blocking
+                    // **** Using shorter wait because scripts are blocked ****
+                    const postNavWait = 500;
                     console.log(\`Pptr: Waiting \${postNavWait}ms post-DOM load...\`);
                     await new Promise(resolve => setTimeout(resolve, postNavWait));
                     console.log('Pptr: Post-DOM wait finished.');
-
                 } catch (error) {
                     console.error('Pptr: Navigation/processing error:', error);
                     navigationError = error;
@@ -103,12 +97,12 @@ module.exports = async (req, res) => {
                 // Check results
                 if (capturedLink) {
                     console.log('Pptr: Link captured, returning it.');
-                    return capturedLink; // Return the link directly
+                    return capturedLink;
                 } else if (navigationError) {
                     console.error('Pptr: No link captured & navigation failed.');
-                    throw navigationError; // Re-throw the navigation error
+                    throw navigationError;
                 } else {
-                    console.error('Pptr: Navigation succeeded but target link response not detected.');
+                    console.error('Pptr: Navigation seemingly succeeded but target link response not detected.');
                     throw new Error('Download link response not detected on ilide.info.');
                 }
             } // End of runPuppeteer function definition
@@ -123,35 +117,30 @@ module.exports = async (req, res) => {
             headless: chromium.headless,
             ignoreHTTPSErrors: true
         });
-        console.log('[Vercel Fn] Browser launched.');
-
         page = await browser.newPage();
-        console.log('[Vercel Fn] New page created.');
 
-        // Execute the script within the browser context
-        // We pass the runPuppeteer function definition as a string
-        // and then call it within evaluate, passing necessary context.
-        capturedLink = await page.evaluate(`
-            (${puppeteerScript})(arguments[0])
-        `, { page: page, context: { ilideLink, blockScripts } }); // Pass context here
+        // Execute Script
+        capturedLink = await page.evaluate(`(${puppeteerScript})(arguments[0])`, { page, context: { ilideLink, blockScripts } });
 
-
-        // If evaluate was successful and returned a link
+        // Handle Success
         if (capturedLink) {
              console.log('[Vercel Fn] Script execution successful, link obtained.');
              res.status(200).json({ downloadLink: capturedLink });
+             // Close browser async after response
+             browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
+             browser = null; // Mark as handled
+             return; // Exit handler
         } else {
-             // This case should ideally be handled by errors thrown inside evaluate, but as a fallback:
-             console.error('[Vercel Fn] Script execution finished but no link returned/captured.');
+             // Should be caught by errors inside evaluate, but as fallback
              throw new Error('Processing completed without finding a download link.');
         }
 
     } catch (error) {
-        // Catch errors from URL parsing, Puppeteer launch/evaluate, or thrown errors
+        // Handle Errors
         console.error("[Vercel Fn] Error during processing:", error);
         processingError = error;
         const statusCode = error.message.includes("Scribd URL format") ? 400
-                         : error.message.includes("Navigation timeout") || error.message.toLowerCase().includes("timeout") ? 504 // Gateway Timeout
+                         : error.message.includes("Navigation timeout") || error.message.toLowerCase().includes("timeout") ? 504
                          : 500;
         return res.status(statusCode).json({ error: error.message || 'An internal server error occurred.' });
     } finally {
