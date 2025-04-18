@@ -3,41 +3,146 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scribd Downloader (Vercel Direct)</title>
+    <title>Scribd Downloader – Vernissage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* --- All CSS Styles (Same as previous version with download button) --- */
-        :root { /* ... */ }
-        body.dark-mode { /* ... */ }
-        * { /* ... */ }
-        html { /* ... */ }
-        body { /* ... */ }
-        /* ... Keep ALL styles ... */
-        .download-button { /* ... */ }
-        #generated-url { /* ... */ }
-        .message { /* ... */ }
-        .loading-spinner { /* ... */ }
-        /* ... etc ... */
-        footer { /* ... */ }
-        /* ... Animations ... */
-        /* ... Responsive Adjustments ... */
+        /* --- Keep all CSS styles from the previous version --- */
+        /* (Includes :root, body.dark-mode, general styles, theme toggle, */
+        /* nav, header, downloader-wrapper, input, generate button, */
+        /* download button, messages, loading spinner, footer, animations, */
+        /* responsive adjustments) */
+        :root {
+          --color-background: #fdfdfd;
+          --color-surface: #ffffff;
+          --color-text: #1a1a1a;
+          --color-accent: #0066ff;
+          --color-secondary: #cc0000;
+          --gradient-accent: linear-gradient(45deg, #0066ff 0%, #00f3ff 100%);
+          --color-accent-rgb: 0, 102, 255; /* RGB for accent */
+          --color-background-rgb: 253, 253, 253; /* RGB for background */
+          --color-text-rgb: 26, 26, 26; /* Light text RGB */
+          --body-after-bg: url('https://www.transparenttextures.com/patterns/white-diamond.png');
+          --body-after-opacity: 0.05;
+          --body-before-grid-color: rgba(0, 0, 0, 0.05);
+          --essay-item-bg: rgba(255, 255, 255, 0.85);
+          --essay-item-border: #ddd;
+          --input-placeholder-color: #999;
+          --footer-color: #555;
+          --soft-border-color: rgba(0, 0, 0, 0.08);
+          --soft-shadow-color: rgba(0, 0, 0, 0.04);
+          --soft-hover-shadow-color: rgba(0, 0, 0, 0.07);
+          --element-border-radius: 1rem;
+          --wrapper-border-radius: 1.8rem;
+          --message-success-bg: rgba(0, 102, 255, 0.08);
+          --message-success-border: rgba(0, 102, 255, 0.2);
+          --message-error-bg: rgba(204, 0, 0, 0.08);
+          --message-error-border: rgba(204, 0, 0, 0.2);
+        }
+        body.dark-mode {
+          --color-background: #0a0a0a;
+          --color-surface: #1f1f1f;
+          --color-text: #e6e6e6;
+          --color-accent: #00f3ff;
+          --color-secondary: #ff3b3b;
+          --gradient-accent: linear-gradient(45deg, #00f3ff 0%, #0066ff 100%);
+          --color-accent-rgb: 0, 243, 255;
+          --color-background-rgb: 10, 10, 10;
+          --color-text-rgb: 230, 230, 230;
+          --body-after-bg: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
+          --body-after-opacity: 0.03;
+          --body-before-grid-color: rgba(255, 255, 255, 0.08);
+          --essay-item-bg: rgba(26, 26, 26, 0.75);
+          --essay-item-border: #333;
+          --input-placeholder-color: #666;
+          --footer-color: #aaa;
+          --soft-border-color: rgba(255, 255, 255, 0.12);
+          --soft-shadow-color: rgba(0, 0, 0, 0.2);
+          --soft-hover-shadow-color: rgba(0, 0, 0, 0.25);
+          --message-success-bg: rgba(0, 243, 255, 0.1);
+          --message-success-border: rgba(0, 243, 255, 0.3);
+          --message-error-bg: rgba(255, 59, 59, 0.1);
+          --message-error-border: rgba(255, 59, 59, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; background: var(--color-background); overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.8; color: var(--color-text); background: var(--color-background); -webkit-font-smoothing: antialiased; position: relative; transition: background-color 0.3s ease, color 0.3s ease; }
+        body::after, body::before { content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; transition: background 0.3s ease, opacity 0.3s ease; }
+        body::after { background: var(--body-after-bg); opacity: var(--body-after-opacity); z-index: 1; }
+        body::before { background-image: linear-gradient(to right, var(--body-before-grid-color) 1px, transparent 1px), linear-gradient(to bottom, var(--body-before-grid-color) 1px, transparent 1px); background-size: 30px 30px; z-index: 0; will-change: transform; transform: translateZ(0); }
+        .container { padding-inline: 2rem; max-width: 1200px; margin-inline: auto; position: relative; z-index: 2; }
+        #theme-toggle { position: fixed; top: 1.5rem; right: 1.5rem; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--essay-item-border); padding: 0.5rem; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 1.2rem; line-height: 1; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease; box-shadow: 0 1px 3px var(--soft-shadow-color); }
+        #theme-toggle:hover { transform: scale(1.1); background-color: rgba(var(--color-accent-rgb), 0.08); border-color: var(--color-accent); }
+        #theme-toggle:active { transform: scale(0.95); }
+        .main-nav { padding: 1.5rem 0 1rem; }
+        .main-nav ul { list-style: none; padding: 0; margin: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 2rem; }
+        .main-nav a { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text); text-decoration: none; padding: 0.5rem 0; position: relative; transition: color 0.3s ease; opacity: 0.9; }
+        .main-nav a:hover, .main-nav a:focus { color: var(--color-accent); opacity: 1; }
+        .main-nav a::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1px; background: var(--color-accent); transition: width 0.4s ease, background-color 0.3s ease; }
+        .main-nav a:hover::after, .main-nav a:focus::after { width: 100%; }
+        header.main-page-header { text-align: center; padding: 2.5rem 0 4rem; }
+        header.main-page-header h1 { font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700; line-height: 1; text-transform: uppercase; background: linear-gradient(90deg, var(--color-accent), #ff00ff, var(--color-accent)); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 3s linear infinite; }
+        @keyframes shimmer { 0% { background-position: -100% 0; } 100% { background-position: 200% 0; } }
+        header.main-page-header .subhead { font-size: 1.25rem; margin-top: 1rem; opacity: 0.9; max-width: 600px; margin-left: auto; margin-right: auto; }
+        main { padding: 1rem 0 4rem; }
+        .downloader-wrapper { max-width: 700px; margin: 2rem auto 0; padding: 2.5rem; background: var(--essay-item-bg); backdrop-filter: blur(12px); border: 1px solid var(--essay-item-border); border-radius: var(--wrapper-border-radius); box-shadow: 0 3px 12px var(--soft-shadow-color); transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; text-align: left; opacity: 0; transform: translateY(20px); animation: fade-in 0.5s ease-out forwards 0.2s; }
+        body.dark-mode .downloader-wrapper { box-shadow: 0 4px 20px var(--soft-shadow-color); }
+        .downloader-wrapper h2 { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; line-height: 1.3; color: var(--color-text); margin-bottom: 2rem; text-align: center; position: relative; transition: color 0.3s ease; opacity: 0; transform: translateY(-10px); animation: fade-in-down 0.4s ease-out forwards 0.1s; }
+        .input-group { margin-bottom: 1.5rem; opacity: 0; transform: translateX(-10px); animation: fade-in-left 0.4s ease-out forwards 0.2s; }
+        label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.6rem; color: var(--color-text); opacity: 0.7; transition: color 0.3s ease, opacity 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        input[type="text"] { width: 100%; padding: 0.9rem 1.1rem; border: 1px solid var(--soft-border-color); border-radius: var(--element-border-radius); font-size: 1rem; font-family: 'Inter', sans-serif; background: var(--color-surface); color: var(--color-text); transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, color 0.3s ease; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); }
+        body.dark-mode input[type="text"] { box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); }
+        input[type="text"]::placeholder { color: var(--input-placeholder-color); opacity: 0.8; }
+        input[type="text"]:focus { outline: none; border-color: var(--color-accent); box-shadow: inset 0 1px 2px rgba(0,0,0,0.04), 0 0 0 3px rgba(var(--color-accent-rgb), 0.15); }
+        body.dark-mode input[type="text"]:focus { box-shadow: inset 0 1px 2px rgba(0,0,0,0.15), 0 0 0 3px rgba(var(--color-accent-rgb), 0.15); }
+        button#generate-btn { width: 100%; padding: 0.9rem 1.1rem; font-size: 1rem; font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text); background-color: var(--color-surface); border: 1px solid var(--soft-border-color); border-radius: var(--element-border-radius); cursor: pointer; text-align: center; transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; box-shadow: 0 2px 5px var(--soft-shadow-color); opacity: 0; transform: scale(1); animation: fade-in-scale 0.3s ease-out forwards 0.3s; }
+        button#generate-btn:hover, button#generate-btn:focus { transform: translateY(-2px); border-color: var(--color-accent); background-color: rgba(var(--color-accent-rgb), 0.07); color: var(--color-accent); box-shadow: 0 4px 8px var(--soft-hover-shadow-color); outline: none; }
+        button#generate-btn:active { transform: translateY(0); box-shadow: inset 0 1px 3px rgba(0,0,0,0.08); background-color: rgba(var(--color-accent-rgb), 0.04); }
+        body.dark-mode button#generate-btn:active { box-shadow: inset 0 1px 3px rgba(0,0,0,0.25); }
+        button#generate-btn:disabled { cursor: not-allowed; opacity: 0.6; box-shadow: none; transform: scale(1); background-color: var(--color-surface); color: var(--color-text); border-color: var(--soft-border-color); }
+        button#generate-btn:disabled:hover { background-color: var(--color-surface); color: var(--color-text); border-color: var(--soft-border-color); box-shadow: none; transform: scale(1); cursor: not-allowed; }
+        .download-button { display: block; width: 100%; padding: 0.9rem 1.1rem; margin-bottom: 1rem; font-size: 1rem; font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; border-radius: var(--element-border-radius); cursor: pointer; text-align: center; transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background 0.3s ease; background: var(--gradient-accent); color: #ffffff; border: none; box-shadow: 0 3px 8px rgba(var(--color-accent-rgb), 0.3); }
+        body.dark-mode .download-button { box-shadow: 0 4px 10px rgba(var(--color-accent-rgb), 0.25); }
+        .download-button:hover, .download-button:focus { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(var(--color-accent-rgb), 0.4); filter: brightness(1.1); outline: none; }
+        .download-button:active { transform: translateY(0px); filter: brightness(0.95); box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); }
+        .download-button:disabled { cursor: not-allowed; opacity: 0.6; filter: grayscale(50%); box-shadow: none; transform: scale(1); }
+        #generated-url { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--essay-item-border); text-align: center; opacity: 0; transform: translateY(10px); animation: fade-in-up 0.4s ease-out forwards 0.5s; transition: border-color 0.3s ease; min-height: 100px; }
+        #generated-url p.result-label { margin-bottom: 0.75rem; font-size: 0.9rem; font-weight: 500; color: var(--color-text); opacity: 0.7; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .message { margin-top: 1rem; padding: 0.8rem 1.1rem; border-radius: var(--element-border-radius); font-size: 0.9rem; display: flex; align-items: center; gap: 0.7rem; opacity: 0; transform: scale(0.95); animation: fade-in-scale 0.3s ease-out forwards; border: 1px solid; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        .message.error { background-color: var(--message-error-bg); border-color: var(--message-error-border); color: var(--color-secondary); }
+        .message.success { background-color: var(--message-success-bg); border-color: var(--message-success-border); color: var(--color-accent); }
+        .message.loading { background-color: rgba(var(--color-text-rgb), 0.05); border-color: rgba(var(--color-text-rgb), 0.1); color: var(--color-text); opacity: 0.8; }
+        .message svg { stroke: currentColor; flex-shrink: 0; }
+        .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(var(--color-text-rgb), 0.3); border-radius: 50%; border-top-color: rgb(var(--color-text-rgb)); animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 0.5em; }
+        button#generate-btn:hover .loading-spinner, button#generate-btn:focus .loading-spinner { border-color: rgba(var(--color-accent-rgb), 0.3); border-top-color: rgb(var(--color-accent-rgb)); }
+        button#generate-btn:disabled .loading-spinner { border-color: rgba(var(--color-text-rgb), 0.3); border-top-color: rgb(var(--color-text-rgb)); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        footer { text-align: center; padding: 3rem 0; font-size: 0.9rem; color: var(--footer-color); transition: color 0.3s ease; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fade-in-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fade-in-left { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fade-in-scale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @media (max-width: 768px) { header.main-page-header h1 { font-size: 3rem; } #theme-toggle { top: 1rem; right: 1rem; font-size: 1rem; width: 35px; height: 35px; } .main-nav { padding: 1rem 0 0.5rem; } .main-nav ul { gap: 1.5rem; } .main-nav a { font-size: 0.9rem; } header.main-page-header { padding-top: 1.5rem; padding-bottom: 3rem; } .downloader-wrapper { padding: 2rem; margin-top: 1rem; border-radius: 1.5rem; } .downloader-wrapper h2 { font-size: 1.8rem; } input[type="text"], button#generate-btn, .download-button, .message { border-radius: 0.8rem; } }
+        @media (max-width: 480px) { header.main-page-header h1 { font-size: 2.5rem; } .container { padding-inline: 1rem; } header.main-page-header { padding: 1rem 0 2rem; } .main-nav { padding: 0.5rem 0 0.5rem; } .main-nav ul { justify-content: space-around; gap: 0.5rem 1rem; } .main-nav a { font-size: 0.85rem; } .downloader-wrapper { padding: 1.5rem; margin-top: 0.5rem; border-radius: 1.2rem; } .downloader-wrapper h2 { font-size: 1.6rem; margin-bottom: 1.5rem;} input[type="text"], button#generate-btn, .download-button { font-size: 0.95rem; padding: 0.7rem 0.9rem; border-radius: 0.75rem;} button#generate-btn, .download-button { font-size: 0.95rem; } label { font-size: 0.85rem; } .message { border-radius: 0.75rem; } }
+
     </style>
 </head>
 <body>
     <button id="theme-toggle" aria-label="Toggle theme"></button>
 
     <div class="container">
-        <!-- Navigation -->
+        <!-- START: Navigation Menu -->
         <nav class="main-nav">
           <ul>
             <li><a href="/">Home</a></li>
             <!-- Add other links -->
           </ul>
         </nav>
+        <!-- END: Navigation Menu -->
 
-        <!-- Header -->
+        <!-- Main Page Header -->
         <header class="main-page-header">
            <h1>All Watched Over by Machines of Loving Grace</h1>
            <p class="subhead">A digital salon of radical culture, critique, and aesthetics</p>
@@ -59,7 +164,7 @@
             </div>
         </main>
 
-        <!-- Footer -->
+        <!-- Standard Footer -->
         <footer>
           <p>© 2025 Vernissage. All content under CC BY-NC-SA 4.0</p>
           <p>Printed in Paris, Marseille, and Buenos Aires</p>
@@ -68,65 +173,109 @@
     </div> <!-- End container -->
 
     <script>
-        // --- Theme Toggle Script ---
-        const themeToggle = document.getElementById('theme-toggle'); /* ... */ function applyTheme(theme) { /* ... */ } /* ... */ applyTheme(currentTheme); themeToggle.addEventListener('click', () => { /* ... */ });
+        // --- Theme Toggle Script (Keep As Is) ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        const lightIcon = '🌙';
+        const darkIcon = '☀️';
+        function applyTheme(theme) { if (theme === 'dark') { body.classList.add('dark-mode'); themeToggle.textContent = darkIcon; themeToggle.setAttribute('aria-label', 'Switch to light theme'); } else { body.classList.remove('dark-mode'); themeToggle.textContent = lightIcon; themeToggle.setAttribute('aria-label', 'Switch to dark theme'); } }
+        let currentTheme = localStorage.getItem('theme'); if (!currentTheme) { currentTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } applyTheme(currentTheme);
+        themeToggle.addEventListener('click', () => { const newTheme = body.classList.contains('dark-mode') ? 'light' : 'dark'; applyTheme(newTheme); localStorage.setItem('theme', newTheme); });
 
         // --- Downloader Script ---
 
         // Helper function to handle download button click
-        function startDownload(buttonElement) { /* ... same as before ... */ const url = buttonElement.dataset.downloadUrl; if (url) { window.open(url, '_blank'); } else { console.error('Download URL missing.'); } }
+        function startDownload(buttonElement) {
+            const url = buttonElement.dataset.downloadUrl;
+            if (url) {
+                console.log('Opening download URL:', url);
+                window.open(url, '_blank');
+            } else {
+                console.error('Download URL missing from button.');
+            }
+        }
 
         async function processUrl() {
             const scribdUrlInput = document.getElementById('file-link');
             const outputDiv = document.getElementById('generated-url');
             const btn = document.getElementById('generate-btn');
             const scribdUrl = scribdUrlInput.value.trim();
+
+            // Icons for messages
             const errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
             const successIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
 
-            outputDiv.innerHTML = '';
-            if (!scribdUrl) { outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`; return; }
+            outputDiv.innerHTML = ''; // Clear previous output
 
-            // Update button state & loading message
-            btn.disabled = true; scribdUrlInput.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
-            outputDiv.innerHTML = `<div class="message loading"><span>Contacting server... This usually takes 5-25 seconds on Vercel. Please wait.</span></div>`;
+            if (!scribdUrl) {
+                outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`;
+                return;
+            }
+
+            // Update button state and provide initial feedback
+            btn.disabled = true;
+            scribdUrlInput.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+            // **** Use the specific loading message ****
+            outputDiv.innerHTML = `<div class="message loading"><span>This usually takes 5-10 seconds. pls wait</span></div>`;
+
 
             try {
-                // **** Fetch points to the Vercel API path ****
-                const response = await fetch('/api/getScribdLink', {
+                // **** Point fetch to the Netlify proxy path ****
+                const response = await fetch('/api/getScribdLinkProxy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scribdUrl: scribdUrl })
                 });
 
-                const result = await response.json();
+                const result = await response.json(); // Parse JSON response
 
                 if (!response.ok) {
+                    // Throw error using message from JSON if available
                     throw new Error(result.error || `Request failed with status ${response.status}`);
                 }
 
                 if (result.downloadLink) {
-                    // Display success button
+                    console.log("Successfully received direct link:", result.downloadLink);
+                    // **** Generate the download button ****
                     outputDiv.innerHTML = `
                         <p class="result-label">Download Ready:</p>
                         <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
                             Download Document
                         </button>
-                        <div class="message success">${successIcon}<span>Link generated. Click button above.</span></div>`;
+                        <div class="message success">
+                            ${successIcon}
+                            <span>Link generated successfully. Click the button above to download.</span>
+                        </div>
+                    `;
                 } else {
-                    throw new Error(result.error || "Received success status but no link.");
+                    // Handle case where response is ok but link is missing
+                    throw new Error(result.error || "Received an unexpected successful response without a link.");
                 }
 
             } catch (error) {
-                 // Display refined error messages
-                 console.error("Frontend Error:", error);
-                 let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
-                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'The request timed out or the server had an issue. This happens sometimes. Please click "Generate Link" to try again.'; }
-                 else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format and try again.`; }
-                 outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
+                console.error("Frontend Error:", error);
+                let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
+
+                // **** Add specific message for common timeout/gateway errors ****
+                if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) {
+                    userMessage = 'shit happens. Please click "Generate Link" to try again.';
+                } else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url')) {
+                    // Be more specific for 400 errors or URL format issues
+                    userMessage = `Error: ${error.message}. Please check the Scribd URL format and ensure it's valid.`;
+                } // Add more specific checks if needed
+
+                // Display error message
+                outputDiv.innerHTML = `
+                    <div class="message error">
+                         ${errorIcon}
+                         <span>${userMessage}</span>
+                    </div>`;
             } finally {
-                 // Re-enable button/input
-                 btn.disabled = false; scribdUrlInput.disabled = false; btn.innerHTML = 'Generate Link';
+                 // Re-enable button/input and restore text
+                 btn.disabled = false;
+                 scribdUrlInput.disabled = false;
+                 btn.innerHTML = 'Generate Link';
             }
         }
     </script>
