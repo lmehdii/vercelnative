@@ -1,7 +1,7 @@
-// File: api/getScribdLink.js (For Vercel Deployment)
+// File: api/getScribdLink.js (Using @sparticuz/chromium)
 
-const fetch = require('node-fetch'); // Keep for potential future use or remove if unused
-const chromium = require('chrome-aws-lambda');
+const fetch = require('node-fetch');
+const chromium = require('@sparticuz/chromium'); // USE @sparticuz/chromium
 const puppeteer = require('puppeteer-core');
 
 // --- Helper Functions (with subdomain fix) ---
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
     console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`);
 
     let browser = null; // Declare browser outside try for finally block
-    let page = null; // Declare page for potential cleanup
+    let page = null;
     let capturedLink = null;
     let processingError = null;
 
@@ -74,18 +74,15 @@ module.exports = async (req, res) => {
         const ilideLink = generateIlideLink(docId, titleSlug);
         console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
 
-        // 2. Launch Puppeteer
-        console.log('[Vercel Fn] Launching browser...');
-        const executablePath = await chromium.executablePath;
-        if (!executablePath) {
-             throw new Error("Chromium executable not found via chrome-aws-lambda.");
-        }
+        // 2. Launch Puppeteer using @sparticuz/chromium
+        console.log('[Vercel Fn] Launching browser via @sparticuz/chromium...');
 
+        // **** USE @sparticuz/chromium properties ****
         browser = await puppeteer.launch({
-            args: chromium.args, // Standard args
+            args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: executablePath,
-            headless: chromium.headless,
+            executablePath: await chromium.executablePath(), // Call the function here
+            headless: chromium.headless, // Use setting from the package
             ignoreHTTPSErrors: true
         });
         console.log('[Vercel Fn] Browser launched.');
@@ -118,7 +115,7 @@ module.exports = async (req, res) => {
              }
         });
 
-        page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; }); // Store first error
+        page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
         page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
         // 4. Navigate
@@ -129,21 +126,18 @@ module.exports = async (req, res) => {
         // Optional minimal wait after DOM load
         const postNavWait = blockScripts ? 500 : 1500;
         console.log(`Pptr: Waiting ${postNavWait}ms post-DOM load...`);
-        await page.waitForTimeout(postNavWait); // Use Puppeteer's wait if available in this version, otherwise use Promise/setTimeout
-        // await new Promise(resolve => setTimeout(resolve, postNavWait)); // Alternative if page.waitForTimeout fails
+        // Using Promise/setTimeout for better compatibility across potential minor puppeteer versions
+        await new Promise(resolve => setTimeout(resolve, postNavWait));
         console.log('Pptr: Post-DOM wait finished.');
 
         // 5. Check Result & Close Browser
         if (capturedLink) {
              console.log('[Vercel Fn] Link captured.');
-             // Return success *before* closing browser in background (faster response to user)
              res.status(200).json({ downloadLink: capturedLink });
-             // Close browser asynchronously after sending response
              browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
-             browser = null; // Prevent finally block from trying again
-             return; // Exit function handler
+             browser = null;
+             return; // Exit handler
         } else {
-             // If link wasn't captured
              console.error('[Vercel Fn] Link not captured after navigation/wait.');
              throw processingError || new Error('Download link response not detected on ilide.info.');
         }
@@ -151,14 +145,13 @@ module.exports = async (req, res) => {
     } catch (error) {
         // Catch errors from any step above
         console.error("[Vercel Fn] Error during processing:", error);
-        processingError = error; // Store the error
-        // Determine status code based on error type
+        processingError = error;
         const statusCode = error.message.includes("Scribd URL format") ? 400
-                         : error.message.includes("Navigation timeout") || error.message.includes("timeout") ? 504 // Gateway Timeout
-                         : 500; // Internal Server Error for others
+                         : error.message.includes("Navigation timeout") || error.message.toLowerCase().includes("timeout") ? 504 // Gateway Timeout
+                         : 500;
         return res.status(statusCode).json({ error: error.message || 'An internal server error occurred.' });
     } finally {
-        // Ensure browser is closed if it wasn't closed successfully earlier
+        // Ensure browser is closed if something went wrong before return/throw
         if (browser !== null) {
             console.log('[Vercel Fn] Closing browser in finally block...');
             try { await browser.close(); } catch (closeErr) { console.error("[Vercel Fn] Error closing browser in finally block:", closeErr); }
