@@ -1,4 +1,4 @@
-// File: your-vercel-project/package.json
+
 {
   "name": "your-vercel-project-name",
   "version": "1.0.0",
@@ -13,4 +13,3 @@
     "node": "18.x" // Recommended Node version
   }
 }
-```*Note: Check for the latest compatible versions of `puppeteer-core` and `chrome-aws-lambda`. V10 of `chrome-aws-lambda` often works well with Puppeteer v19.*
