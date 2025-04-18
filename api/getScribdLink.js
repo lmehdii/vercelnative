@@ -8,25 +8,23 @@ function extractScribdInfo(url) {
     throw new Error('Invalid URL provided for extraction.');
   }
 
-  const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
+  const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/i;
   const match = url.match(regex);
 
   if (match && match[1]) {
     const docId = match[1];
     const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`;
-    const title = titleSlug.replace(/-/g, ' ');
     console.log(`[Vercel Fn] Extracted via primary regex: ID=${docId}, Slug=${titleSlug}`);
-    return { docId, title, titleSlug };
+    return { docId, titleSlug };
   }
 
-  const genericRegex = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/;
+  const genericRegex = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/i;
   const genericMatch = url.match(genericRegex);
   if (genericMatch && genericMatch[1]) {
     const docId = genericMatch[1];
     const titleSlug = `document-${docId}`;
-    const title = `Document ${docId}`;
     console.warn("[Vercel Fn] Used generic Scribd URL matching.");
-    return { docId, title, titleSlug };
+    return { docId, titleSlug };
   }
 
   console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`);
@@ -37,8 +35,7 @@ function generateIlideLink(docId, titleSlug) {
   const fileUrl = encodeURIComponent(
     `https://scribd.vdownloaders.com/pdownload/${docId}%2F${titleSlug}`
   );
-  const titleWithSpaces = titleSlug.replace(/-/g, ' ');
-  const encodedTitle = encodeURIComponent(`<div><p>${titleWithSpaces}</p></div>`);
+  const encodedTitle = encodeURIComponent(`<div><p>${titleSlug.replace(/-/g, ' ')}</p></div>`);
 
   return `https://ilide.info/docgeneratev2` +
          `?fileurl=${fileUrl}` +
@@ -62,12 +59,10 @@ module.exports = async (req, res) => {
   console.log(`[Vercel Fn] Request for: ${scribdUrl}`);
 
   try {
-    // Extract document info and build ilide link
     const { docId, titleSlug } = extractScribdInfo(scribdUrl);
     const ilideLink = generateIlideLink(docId, titleSlug);
     console.log(`[Vercel Fn] Target ilide.info link: ${ilideLink}`);
 
-    // Attempt a manual fetch to capture redirect
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
       'Referer': ilideLink
@@ -75,7 +70,7 @@ module.exports = async (req, res) => {
 
     let downloadLink = null;
 
-    // 1) Try manual redirect capture
+    // 1) Attempt to capture redirect directly
     const redirectRes = await fetch(ilideLink, { redirect: 'manual', headers });
     if (redirectRes.status >= 300 && redirectRes.status < 400) {
       const location = redirectRes.headers.get('location');
@@ -89,19 +84,24 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2) Fallback: fetch HTML and regex parse
+    // 2) Fallback: fetch HTML, decode entities, and regex parse
     if (!downloadLink) {
       const htmlRes = await fetch(ilideLink, { headers });
-      const html = await htmlRes.text();
-      const match = html.match(/\/viewer\/web\/viewer\.html\?file=([^"']+)/);
+      let html = await htmlRes.text();
+      // Convert HTML entities to raw text so &amp; becomes '&'
+      html = html.replace(/&amp;/g, '&');
+
+      const match = html.match(/\/viewer\/web\/viewer\.html\?file=([^"'&\s]+)/i);
       if (!match) {
+        console.error('[Vercel Fn] HTML parse failed. Sample:', html.slice(0, 200));
         throw new Error('Download link parameter not found in HTML.');
       }
+
       downloadLink = decodeURIComponent(decodeURIComponent(match[1]));
       console.log('[Vercel Fn] Captured via HTML parse:', downloadLink);
     }
 
-    // Return the captured download link
+    // Return the final link
     return res.status(200).json({ downloadLink });
 
   } catch (error) {
