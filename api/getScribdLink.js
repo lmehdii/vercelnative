@@ -70,85 +70,56 @@ module.exports = async (req, res) => {
 
     let downloadLink = null;
 
-    // 1) Attempt to capture redirect directly
+    // 1) Try following redirects automatically and inspect final URL
     try {
-      const redirectRes = await fetch(ilideLink, { redirect: 'manual', headers });
-      if (redirectRes.status >= 300 && redirectRes.status < 400) {
-        const location = redirectRes.headers.get('location');
-        if (location && location.includes('/viewer/web/viewer.html')) {
-          const urlObj = new URL(location, ilideLink);
-          const fileParam = urlObj.searchParams.get('file');
-          if (fileParam) {
-            downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
-            console.log('[Vercel Fn] Captured via redirect:', downloadLink);
-          }
+      const followRes = await fetch(ilideLink, { headers });
+      const finalUrl = followRes.url;
+      if (finalUrl.includes('/viewer/web/viewer.html')) {
+        const urlObj = new URL(finalUrl);
+        const fileParam = urlObj.searchParams.get('file');
+        if (fileParam) {
+          downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
+          console.log('[Vercel Fn] Captured via redirect follow:', downloadLink);
         }
       }
     } catch (e) {
-      console.warn('[Vercel Fn] Redirect capture failed, continuing to fallback.', e);
+      console.warn('[Vercel Fn] Redirect-follow capture failed:', e);
     }
 
-    // 2) Fallback: fetch HTML, decode entities, and regex parse
+    // 2) Fallback: fetch HTML and static parse
     if (!downloadLink) {
-      try {
-        const htmlRes = await fetch(ilideLink, { headers });
-        let html = await htmlRes.text();
-        html = html.replace(/&amp;/g, '&');
+      const htmlRes = await fetch(ilideLink, { headers });
+      let html = await htmlRes.text();
+      html = html.replace(/&amp;/g, '&');
 
-        // Try to match iframe src first
-        let match = html.match(/<iframe[^>]+src="([^"]*viewer\/web\/viewer\.html\?file=[^"\s]+)"/i);
-        let viewerUrl = match ? match[1] : null;
+      // Patterns to search for viewer URL
+      const patterns = [
+        /<meta[^>]+content="([^"]*viewer\/web\/viewer\.html\?file=[^"]+)"/i,
+        /<iframe[^>]+src="([^"]*viewer\/web\/viewer\.html\?file=[^"]+)"/i,
+        /(https?:\/\/[^"]*viewer\/web\/viewer\.html\?file=[^"'\s]+)/i,
+        /\/viewer\/web\/viewer\.html\?file=([^"'&\s]+)/i
+      ];
 
-        // If no iframe, try generic URL match
-        if (!viewerUrl) {
-          match = html.match(/\/viewer\/web\/viewer\.html\?file=([^"'&\s]+)/i);
-          if (match) {
-            viewerUrl = match[0];
+      let fileParam = null;
+      for (const regex of patterns) {
+        const m = html.match(regex);
+        if (m && m[1]) {
+          const urlStr = m[1].startsWith('http') ? m[1] : `${ilideLink}${m[0]}`;
+          const urlObj = new URL(urlStr, ilideLink);
+          fileParam = urlObj.searchParams.get('file');
+          if (fileParam) {
+            downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
+            console.log('[Vercel Fn] Captured via HTML pattern:', downloadLink);
+            break;
           }
         }
+      }
 
-        if (viewerUrl) {
-          const urlObj = new URL(viewerUrl, ilideLink);
-          const fileParam = urlObj.searchParams.get('file');
-          downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
-          console.log('[Vercel Fn] Captured via HTML parse:', downloadLink);
-        } else {
-          throw new Error('Viewer URL not found in HTML.');
-        }
-
-      } catch (htmlError) {
-        console.warn('[Vercel Fn] HTTP HTML parse failed, switching to Puppeteer fallback.', htmlError);
-
-        // 3) Puppeteer fallback for dynamic content
-        const chromium = require('@sparticuz/chromium');
-        const puppeteer = require('puppeteer-core');
-        const browser = await puppeteer.launch({
-          args: chromium.args,
-          defaultViewport: chromium.defaultViewport,
-          executablePath: await chromium.executablePath(),
-          headless: chromium.headless,
-          ignoreHTTPSErrors: true
-        });
-        const page = await browser.newPage();
-        await page.setRequestInterception(true);
-        page.on('request', req => {
-          const rt = req.resourceType();
-          if (['image','stylesheet','font','media'].includes(rt)) req.abort();
-          else req.continue();
-        });
-        await page.goto(ilideLink, { waitUntil: 'networkidle2', timeout: 60000 });
-        const frame = await page.waitForSelector('iframe[src*="viewer/web/viewer.html"]', { timeout: 60000 });
-        const src = await frame.evaluate(el => el.src);
-        const urlObj = new URL(src);
-        const fileParam = urlObj.searchParams.get('file');
-        if (!fileParam) throw new Error('Puppeteer: file param missing');
-        downloadLink = decodeURIComponent(decodeURIComponent(fileParam));
-        console.log('[Vercel Fn] Captured via Puppeteer:', downloadLink);
-        await browser.close();
+      if (!downloadLink) {
+        console.error('[Vercel Fn] All static parse patterns failed.');
+        throw new Error('Download link parameter not found in HTML.');
       }
     }
-
-    if (!downloadLink) throw new Error('Failed to capture download link by any method.');
 
     return res.status(200).json({ downloadLink });
 
