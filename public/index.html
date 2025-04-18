@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scribd Downloader – Vernissage</title> <!-- Customize if needed -->
+    <title>Scribd Downloader & Previewer – Vernissage</title> <!-- Updated title -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
@@ -62,7 +62,7 @@
           --message-error-bg: rgba(255, 59, 59, 0.1);
           --message-error-border: rgba(255, 59, 59, 0.3);
         }
-        /* --- General Styles --- */
+        /* --- General & Component Styles (Keep all from previous version) --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; background: var(--color-background); overflow-x: hidden; }
         body { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.8; color: var(--color-text); background: var(--color-background); -webkit-font-smoothing: antialiased; position: relative; transition: background-color 0.3s ease, color 0.3s ease; }
@@ -105,11 +105,46 @@
         .download-button:hover, .download-button:focus { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(var(--color-accent-rgb), 0.4); filter: brightness(1.1); outline: none; }
         .download-button:active { transform: translateY(0px); filter: brightness(0.95); box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); }
         .download-button:disabled { cursor: not-allowed; opacity: 0.6; filter: grayscale(50%); box-shadow: none; transform: scale(1); }
-        .preview-button { display: block; width: 100%; padding: 0.9rem 1.1rem; margin-top: 0.75rem; margin-bottom: 1rem; font-size: 1rem; font-family: 'Inter', sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; border-radius: var(--element-border-radius); cursor: pointer; text-align: center; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; background-color: transparent; color: var(--color-accent); border: 1px solid var(--color-accent); box-shadow: none; }
-         .preview-button:hover, .preview-button:focus { transform: translateY(-1px); background-color: rgba(var(--color-accent-rgb), 0.07); box-shadow: 0 2px 5px var(--soft-hover-shadow-color); outline: none; }
-         .preview-button:active { transform: translateY(0px); background-color: rgba(var(--color-accent-rgb), 0.1); box-shadow: inset 0 1px 2px rgba(0,0,0,0.06); }
-         body.dark-mode .preview-button:active { box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); }
-        #generated-url { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--essay-item-border); text-align: center; opacity: 0; transform: translateY(10px); animation: fade-in-up 0.4s ease-out forwards 0.5s; transition: border-color 0.3s ease; min-height: 150px; }
+
+        /* **** NEW: Preview Button Styling **** */
+        .preview-button {
+            display: block; /* Takes full width */
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            margin-top: -0.25rem; /* Slightly reduce gap below download button */
+            margin-bottom: 1rem; /* Space below button */
+            font-size: 0.95rem; /* Slightly smaller than download */
+            font-family: 'Inter', sans-serif;
+            font-weight: 500; /* Less emphasis than download */
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-radius: var(--element-border-radius);
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+            /* Style similar to generate button */
+            color: var(--color-accent); /* Accent color text */
+            background-color: var(--color-surface);
+            border: 1px solid var(--soft-border-color);
+            box-shadow: 0 2px 5px var(--soft-shadow-color);
+        }
+         .preview-button:hover, .preview-button:focus {
+            transform: translateY(-2px);
+            border-color: var(--color-accent);
+            background-color: rgba(var(--color-accent-rgb), 0.07);
+            box-shadow: 0 4px 8px var(--soft-hover-shadow-color);
+            outline: none;
+        }
+        .preview-button:active {
+            transform: translateY(0);
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
+            background-color: rgba(var(--color-accent-rgb), 0.04);
+        }
+         body.dark-mode .preview-button:active {
+              box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+         }
+
+        #generated-url { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--essay-item-border); text-align: center; opacity: 0; transform: translateY(10px); animation: fade-in-up 0.4s ease-out forwards 0.5s; transition: border-color 0.3s ease; min-height: 140px; /* Ensure space for two buttons + message */ }
         #generated-url p.result-label { margin-bottom: 0.75rem; font-size: 0.9rem; font-weight: 500; color: var(--color-text); opacity: 0.7; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
         .message { margin-top: 1rem; padding: 0.8rem 1.1rem; border-radius: var(--element-border-radius); font-size: 0.9rem; display: flex; align-items: center; gap: 0.7rem; opacity: 0; transform: scale(0.95); animation: fade-in-scale 0.3s ease-out forwards; border: 1px solid; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         .message.error { background-color: var(--message-error-bg); border-color: var(--message-error-border); color: var(--color-secondary); }
@@ -126,8 +161,8 @@
         @keyframes fade-in-left { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fade-in-scale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        @media (max-width: 768px) { header.main-page-header h1 { font-size: 3rem; } #theme-toggle { top: 1rem; right: 1rem; font-size: 1rem; width: 35px; height: 35px; } .main-nav { padding: 1rem 0 0.5rem; } .main-nav ul { gap: 1.5rem; } .main-nav a { font-size: 0.9rem; } header.main-page-header { padding-top: 1.5rem; padding-bottom: 3rem; } .downloader-wrapper { padding: 2rem; margin-top: 1rem; border-radius: 1.5rem; } .downloader-wrapper h2 { font-size: 1.8rem; } input[type="text"], button#generate-btn, .download-button, .preview-button, .message { border-radius: 0.8rem; } }
-        @media (max-width: 480px) { header.main-page-header h1 { font-size: 2.5rem; } .container { padding-inline: 1rem; } header.main-page-header { padding: 1rem 0 2rem; } .main-nav { padding: 0.5rem 0 0.5rem; } .main-nav ul { justify-content: space-around; gap: 0.5rem 1rem; } .main-nav a { font-size: 0.85rem; } .downloader-wrapper { padding: 1.5rem; margin-top: 0.5rem; border-radius: 1.2rem; } .downloader-wrapper h2 { font-size: 1.6rem; margin-bottom: 1.5rem;} input[type="text"], button#generate-btn, .download-button, .preview-button { font-size: 0.95rem; padding: 0.7rem 0.9rem; border-radius: 0.75rem;} button#generate-btn, .download-button, .preview-button { font-size: 0.95rem; } label { font-size: 0.85rem; } .message { border-radius: 0.75rem; } }
+        @media (max-width: 768px) { header.main-page-header h1 { font-size: 3rem; } #theme-toggle { top: 1rem; right: 1rem; font-size: 1rem; width: 35px; height: 35px; } .main-nav { padding: 1rem 0 0.5rem; } .main-nav ul { gap: 1.5rem; } .main-nav a { font-size: 0.9rem; } header.main-page-header { padding-top: 1.5rem; padding-bottom: 3rem; } .downloader-wrapper { padding: 2rem; margin-top: 1rem; border-radius: 1.5rem; } .downloader-wrapper h2 { font-size: 1.8rem; } input[type="text"], button#generate-btn, .download-button, .preview-button, .message { border-radius: 0.8rem; } } /* Added preview-button */
+        @media (max-width: 480px) { header.main-page-header h1 { font-size: 2.5rem; } .container { padding-inline: 1rem; } header.main-page-header { padding: 1rem 0 2rem; } .main-nav { padding: 0.5rem 0 0.5rem; } .main-nav ul { justify-content: space-around; gap: 0.5rem 1rem; } .main-nav a { font-size: 0.85rem; } .downloader-wrapper { padding: 1.5rem; margin-top: 0.5rem; border-radius: 1.2rem; } .downloader-wrapper h2 { font-size: 1.6rem; margin-bottom: 1.5rem;} input[type="text"], button#generate-btn, .download-button, .preview-button { font-size: 0.95rem; padding: 0.7rem 0.9rem; border-radius: 0.75rem;} button#generate-btn, .download-button, .preview-button { font-size: 0.95rem; } label { font-size: 0.85rem; } .message { border-radius: 0.75rem; } } /* Added preview-button */
     </style>
 </head>
 <body>
@@ -136,7 +171,10 @@
     <div class="container">
         <!-- Navigation -->
         <nav class="main-nav">
-          <ul><li><a href="/">Home</a></li></ul>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <!-- Add other links -->
+          </ul>
         </nav>
 
         <!-- Header -->
@@ -175,25 +213,33 @@
         const body = document.body;
         const lightIcon = '🌙';
         const darkIcon = '☀️';
-        function applyTheme(theme) { if (theme === 'dark') { body.classList.add('dark-mode'); themeToggle.textContent = darkIcon; } else { body.classList.remove('dark-mode'); themeToggle.textContent = lightIcon; } }
-        let currentTheme = localStorage.getItem('theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        applyTheme(currentTheme);
+        function applyTheme(theme) { if (theme === 'dark') { body.classList.add('dark-mode'); themeToggle.textContent = darkIcon; themeToggle.setAttribute('aria-label', 'Switch to light theme'); } else { body.classList.remove('dark-mode'); themeToggle.textContent = lightIcon; themeToggle.setAttribute('aria-label', 'Switch to dark theme'); } }
+        let currentTheme = localStorage.getItem('theme'); if (!currentTheme) { currentTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } applyTheme(currentTheme);
         themeToggle.addEventListener('click', () => { const newTheme = body.classList.contains('dark-mode') ? 'light' : 'dark'; applyTheme(newTheme); localStorage.setItem('theme', newTheme); });
 
-
         // --- Downloader Script ---
+
+        // **** NEW: Function to extract Document ID from URL ****
+        function extractDocIdFromUrl(url) {
+            if (!url || typeof url !== 'string') return null;
+            // Use the reliable regex (handles optional subdomains)
+            const genericMatch = url.match(/(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/);
+            return genericMatch ? genericMatch[1] : null; // Return only the ID (group 1) or null
+        }
 
         // Helper function to handle download button click
         function startDownload(buttonElement) {
             const url = buttonElement.dataset.downloadUrl;
-            if (url) { window.open(url, '_blank'); } else { console.error('Download URL missing.'); }
+            if (url) { window.open(url, '_blank'); }
+            else { console.error('Download URL missing from button.'); }
         }
 
-        // Helper function to handle PREVIEW button click
-        function openPreview(previewUrl) {
-             if (previewUrl) { window.open(previewUrl, '_blank'); } else { console.error('Preview URL missing.'); }
+        // **** NEW: Helper function to handle preview button click ****
+        function openPreview(buttonElement) {
+            const url = buttonElement.dataset.previewUrl;
+            if (url) { window.open(url, '_blank'); }
+            else { console.error('Preview URL missing from button.'); }
         }
-
 
         async function processUrl() {
             const scribdUrlInput = document.getElementById('file-link');
@@ -205,19 +251,34 @@
             const successIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
 
             outputDiv.innerHTML = '';
-            if (!scribdUrl) { outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`; return; }
 
-            // Set loading state with specific message
-            btn.disabled = true; scribdUrlInput.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+            if (!scribdUrl) {
+                outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`;
+                return;
+            }
+
+            // **** Extract Doc ID and build Preview URL ****
+            const docId = extractDocIdFromUrl(scribdUrl);
+            if (!docId) {
+                outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Could not extract Document ID. Please check the Scribd URL format.</span></div>`;
+                return; // Stop processing if ID extraction fails
+            }
+            const previewUrl = `https://fscribd.com/embeds/${docId}/content`;
+            console.log("Constructed Preview URL:", previewUrl);
+
+            // Set loading state
+            btn.disabled = true;
+            scribdUrlInput.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
             outputDiv.innerHTML = `<div class="message loading"><span>This usually takes 5-10 seconds. pls wait</span></div>`;
 
 
             try {
-                // Fetch from Vercel API endpoint
+                // Call Vercel API function
                 const response = await fetch('/api/getScribdLink', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ scribdUrl: scribdUrl })
+                    body: JSON.stringify({ scribdUrl: scribdUrl }) // Send original URL
                 });
 
                 const result = await response.json();
@@ -226,60 +287,48 @@
                     throw new Error(result.error || `Request failed with status ${response.status}`);
                 }
 
-                // Check for BOTH downloadLink AND documentId FROM THE RESPONSE
-                if (result.downloadLink && result.documentId) {
-                    console.log("Success. Link:", result.downloadLink, "ID:", result.documentId);
-
-                    // Construct Preview URL using the ID FROM THE RESPONSE
-                    const previewUrl = `https://scribd.com/embeds/${result.documentId}/content`;
-                    console.log("[Frontend] Constructed Preview URL:", previewUrl);
-
-                    // Generate BOTH Download and Preview buttons
+                if (result.downloadLink) {
+                    console.log("Successfully received direct link:", result.downloadLink);
+                    // **** Generate BOTH buttons ****
                     outputDiv.innerHTML = `
                         <p class="result-label">Ready:</p>
-                        <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
+                        <button
+                            id="download-btn"
+                            class="download-button"
+                            onclick="startDownload(this)"
+                            data-download-url="${result.downloadLink}"
+                        >
                             Download Document
                         </button>
-                        <button id="preview-btn" class="preview-button" onclick="openPreview('${previewUrl}')">
+                        <button
+                            id="preview-btn"
+                            class="preview-button"
+                            onclick="openPreview(this)"
+                            data-preview-url="${previewUrl}"
+                        >
                             Preview Document
                         </button>
                         <div class="message success">
                             ${successIcon}
-                            <span>Link generated successfully.</span>
+                            <span>Link generated. Click button above to download or preview.</span>
                         </div>
                     `;
-                } else if (result.downloadLink) {
-                     // Fallback if documentId was missing from backend response
-                     console.warn("Received download link but missing documentId from backend for preview.");
-                     outputDiv.innerHTML = `
-                        <p class="result-label">Download Ready:</p>
-                        <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
-                            Download Document
-                        </button>
-                        <div class="message success">
-                            ${successIcon}
-                            <span>Link generated successfully. Preview unavailable.</span>
-                        </div>
-                    `;
-                }
-                 else {
-                    // Handle case where response is ok but essential data is missing
-                    throw new Error(result.error || "Received an unexpected successful response without required data.");
+                } else {
+                    throw new Error(result.error || "Received success status but no link.");
                 }
 
             } catch (error) {
-                 // Error Handling with specific timeout message
                  console.error("Frontend Error:", error);
                  let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
-                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) {
-                     userMessage = 'shit happens. Please click "Generate Link" to try again.'; // Specific timeout message
-                 } else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) {
-                     userMessage = `Error: ${error.message}. Please check the Scribd URL format and try again.`;
-                 }
+                 // Updated error messages
+                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'shit happens. Please click "Generate Link" to try again.'; }
+                 else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format and try again.`; }
                  outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
             } finally {
-                 // Re-enable controls
-                 btn.disabled = false; scribdUrlInput.disabled = false; btn.innerHTML = 'Generate Link';
+                 // Re-enable button/input
+                 btn.disabled = false;
+                 scribdUrlInput.disabled = false;
+                 btn.innerHTML = 'Generate Link';
             }
         }
     </script>
