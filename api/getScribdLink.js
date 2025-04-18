@@ -1,10 +1,10 @@
-// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to BLOCKED)
+// File: api/getScribdLink.js (Vercel - Scripts HARDCODED to ALLOWED)
 
 const fetch = require('node-fetch');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
-// --- Helper Functions (with subdomain fix) ---
+// --- Helper Functions (Unchanged - with subdomain fix) ---
 function extractScribdInfo(url) {
      if (!url || typeof url !== 'string') { throw new Error('Invalid URL provided for extraction.'); }
      const regex = /(?:[a-z]{2,3}\.)?scribd\.com\/(?:document|doc)\/(\d+)\/?([^?\/]+)?/;
@@ -22,8 +22,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    // **** SETTING: Hardcode blockScripts to true ****
-    const blockScripts = true;
+    // **** SETTING: Hardcode blockScripts to false ****
+    const blockScripts = false;
 
     const { scribdUrl } = req.body;
     if (!scribdUrl || typeof scribdUrl !== 'string') {
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Missing or invalid scribdUrl in request body.' });
     }
 
-    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show true
+    console.log(`[Vercel Fn] Request for: ${scribdUrl}. Script Blocking: ${blockScripts}`); // Log will show false
 
     let browser = null, page = null, capturedLink = null, processingError = null;
 
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
         // Define Puppeteer Script String
         const puppeteerScript = `
             async function runPuppeteer({ page, context }) {
-                const { ilideLink, blockScripts } = context; // blockScripts will be true here
+                const { ilideLink, blockScripts } = context; // blockScripts will be false here
                 let capturedLink = null;
                 let navigationError = null;
                 console.log('Pptr: Script started. blockScripts=${blockScripts}. URL:', ilideLink);
@@ -53,14 +53,13 @@ module.exports = async (req, res) => {
                 page.on('request', (request) => {
                     const resourceType = request.resourceType();
                     const blockList = ['image', 'stylesheet', 'font', 'media'];
-                    // **** Script Blocking is ACTIVE ****
-                    if (blockScripts && resourceType === 'script') {
-                         console.log('Pptr: Blocking Script:', request.url().substring(0, 80));
+                    // **** Script Blocking is INACTIVE ****
+                    if (blockScripts && resourceType === 'script') { // This condition will be false
                          request.abort();
                     } else if (blockList.includes(resourceType)) {
-                        request.abort();
+                        request.abort(); // Still block other resources
                     } else {
-                        request.continue();
+                        request.continue(); // Allow scripts and others
                     }
                 });
 
@@ -79,13 +78,14 @@ module.exports = async (req, res) => {
                 page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
                 page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
+
                 // Navigation
                 try {
                     console.log('Pptr: Navigating (using domcontentloaded)...');
                     await page.goto(ilideLink, { waitUntil: 'domcontentloaded', timeout: 55000 });
                     console.log('Pptr: DOMContentLoaded fired.');
-                    // **** Using shorter wait because scripts are blocked ****
-                    const postNavWait = 500;
+                    // **** Using longer wait because scripts are allowed ****
+                    const postNavWait = 1500;
                     console.log(\`Pptr: Waiting \${postNavWait}ms post-DOM load...\`);
                     await new Promise(resolve => setTimeout(resolve, postNavWait));
                     console.log('Pptr: Post-DOM wait finished.');
@@ -111,11 +111,7 @@ module.exports = async (req, res) => {
         // Launch Puppeteer
         console.log('[Vercel Fn] Launching browser via @sparticuz/chromium...');
         browser = await puppeteer.launch({
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
-            headless: chromium.headless,
-            ignoreHTTPSErrors: true
+             args: chromium.args, defaultViewport: chromium.defaultViewport, executablePath: await chromium.executablePath(), headless: chromium.headless, ignoreHTTPSErrors: true
         });
         page = await browser.newPage();
 
@@ -126,12 +122,10 @@ module.exports = async (req, res) => {
         if (capturedLink) {
              console.log('[Vercel Fn] Script execution successful, link obtained.');
              res.status(200).json({ downloadLink: capturedLink });
-             // Close browser async after response
              browser.close().then(() => console.log('[Vercel Fn] Browser closed asynchronously.')).catch(e => console.error('[Vercel Fn] Async browser close error:', e));
-             browser = null; // Mark as handled
-             return; // Exit handler
+             browser = null;
+             return;
         } else {
-             // Should be caught by errors inside evaluate, but as fallback
              throw new Error('Processing completed without finding a download link.');
         }
 
