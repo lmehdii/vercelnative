@@ -1,0 +1,78 @@
+<!-- File: your-vercel-project/scribd/scribd.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ... (Keep Head, Stylesheet links etc.) ... -->
+    <title>Scribd Downloader (Vercel Direct)</title>
+    <style>
+        /* --- Keep all CSS styles --- */
+    </style>
+</head>
+<body>
+    <!-- ... (Keep Theme Toggle Button, Container, Nav, Header, Wrapper, Input, Generate Button, Output Div, Footer) ... -->
+
+    <script>
+        // --- Theme Toggle Script (Keep As Is) ---
+        // ...
+
+        // --- Downloader Script ---
+
+        // Helper function to handle download button click (Unchanged)
+        function startDownload(buttonElement) { /* ... */ }
+
+        async function processUrl() {
+            const scribdUrlInput = document.getElementById('file-link');
+            const outputDiv = document.getElementById('generated-url');
+            const btn = document.getElementById('generate-btn');
+            const scribdUrl = scribdUrlInput.value.trim();
+            const errorIcon = /* ... svg ... */;
+            const successIcon = /* ... svg ... */;
+
+            // ... (Clear output, check input, set loading state - same as before) ...
+             outputDiv.innerHTML = '';
+             if (!scribdUrl) { /* ... */ return; }
+             btn.disabled = true; scribdUrlInput.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+             outputDiv.innerHTML = `<div class="message loading"><span>Contacting server... This usually takes 5-25 seconds on Vercel. Please wait.</span></div>`; // Updated message
+
+
+            try {
+                // **** CHANGE: Point fetch to the Vercel API path ****
+                const response = await fetch('/api/getScribdLink', { // LOCAL Vercel API path
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scribdUrl: scribdUrl })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || `Request failed with status ${response.status}`);
+                }
+
+                if (result.downloadLink) {
+                    // ... (Display success button - same as before) ...
+                     outputDiv.innerHTML = `
+                        <p class="result-label">Download Ready:</p>
+                        <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
+                            Download Document
+                        </button>
+                        <div class="message success">${successIcon}<span>Link generated. Click button above.</span></div>`;
+                } else {
+                    throw new Error(result.error || "Received success status but no link.");
+                }
+
+            } catch (error) {
+                 // ... (Handle errors, display timeout/retry message - same as before) ...
+                  console.error("Frontend Error:", error);
+                  let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
+                  if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'The request timed out or the server encountered an issue. This can happen occasionally. Please click "Generate Link" to try again.'; }
+                  else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format.` }
+                  outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
+            } finally {
+                 // ... (Re-enable button/input - same as before) ...
+                  btn.disabled = false; scribdUrlInput.disabled = false; btn.innerHTML = 'Generate Link';
+            }
+        }
+    </script>
+</body>
+</html>

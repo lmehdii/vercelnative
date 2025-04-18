@@ -1,0 +1,16 @@
+// File: your-vercel-project/package.json
+{
+  "name": "your-vercel-project-name",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    // ... your other dependencies ...
+    "node-fetch": "^2.6.7", // Keep if needed elsewhere, otherwise optional now
+    "chrome-aws-lambda": "^10.1.0", // Or latest compatible version
+    "puppeteer-core": "^19.0.0" // Use a version compatible with chrome-aws-lambda v10
+  },
+  "engines": {
+    "node": "18.x" // Recommended Node version
+  }
+}
+```*Note: Check for the latest compatible versions of `puppeteer-core` and `chrome-aws-lambda`. V10 of `chrome-aws-lambda` often works well with Puppeteer v19.*
