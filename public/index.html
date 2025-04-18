@@ -105,11 +105,11 @@
         .download-button:hover, .download-button:focus { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(var(--color-accent-rgb), 0.4); filter: brightness(1.1); outline: none; }
         .download-button:active { transform: translateY(0px); filter: brightness(0.95); box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); }
         .download-button:disabled { cursor: not-allowed; opacity: 0.6; filter: grayscale(50%); box-shadow: none; transform: scale(1); }
-        .preview-button { display: block; width: 100%; padding: 0.9rem 1.1rem; margin-top: -0.25rem; margin-bottom: 1rem; font-size: 0.95rem; font-family: 'Inter', sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: var(--element-border-radius); cursor: pointer; text-align: center; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; color: var(--color-accent); background-color: var(--color-surface); border: 1px solid var(--soft-border-color); box-shadow: 0 2px 5px var(--soft-shadow-color); }
+        .preview-button { display: block; width: 100%; padding: 0.9rem 1.1rem; /* Removed negative top margin, adjust spacing with download button margin */ margin-bottom: 1rem; font-size: 0.95rem; font-family: 'Inter', sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: var(--element-border-radius); cursor: pointer; text-align: center; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; color: var(--color-accent); background-color: var(--color-surface); border: 1px solid var(--soft-border-color); box-shadow: 0 2px 5px var(--soft-shadow-color); }
          .preview-button:hover, .preview-button:focus { transform: translateY(-2px); border-color: var(--color-accent); background-color: rgba(var(--color-accent-rgb), 0.07); box-shadow: 0 4px 8px var(--soft-hover-shadow-color); outline: none; }
          .preview-button:active { transform: translateY(0); box-shadow: inset 0 1px 3px rgba(0,0,0,0.08); background-color: rgba(var(--color-accent-rgb), 0.04); }
          body.dark-mode .preview-button:active { box-shadow: inset 0 1px 3px rgba(0,0,0,0.25); }
-        #generated-url { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--essay-item-border); text-align: center; opacity: 0; transform: translateY(10px); animation: fade-in-up 0.4s ease-out forwards 0.5s; transition: border-color 0.3s ease; min-height: 140px; }
+        #generated-url { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--essay-item-border); text-align: center; opacity: 0; transform: translateY(10px); animation: fade-in-up 0.4s ease-out forwards 0.5s; transition: border-color 0.3s ease; min-height: 140px; /* Adjusted min-height slightly if needed */ }
         #generated-url p.result-label { margin-bottom: 0.75rem; font-size: 0.9rem; font-weight: 500; color: var(--color-text); opacity: 0.7; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
         .message { margin-top: 1rem; padding: 0.8rem 1.1rem; border-radius: var(--element-border-radius); font-size: 0.9rem; display: flex; align-items: center; gap: 0.7rem; opacity: 0; transform: scale(0.95); animation: fade-in-scale 0.3s ease-out forwards; border: 1px solid; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         .message.error { background-color: var(--message-error-bg); border-color: var(--message-error-border); color: var(--color-secondary); }
@@ -188,6 +188,7 @@
         // Frontend function to extract Document ID from URL
         function extractDocIdFromUrl(url) {
             if (!url || typeof url !== 'string') return null;
+            // Regex to find Scribd document/doc/presentation/book IDs
             const genericMatch = url.match(/(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/);
             return genericMatch ? genericMatch[1] : null;
         }
@@ -208,13 +209,15 @@
             const scribdUrlInput = document.getElementById('file-link');
             const outputDiv = document.getElementById('generated-url');
             const btn = document.getElementById('generate-btn');
-            const scribdUrl = scribdUrlInput.value.trim();
+            const scribdUrl = scribdUrlInput.value.trim(); // Get the user-provided URL
 
+            // Icons for messages
             const errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
             const successIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
 
-            outputDiv.innerHTML = '';
+            outputDiv.innerHTML = ''; // Clear previous results
 
+            // Basic input validation
             if (!scribdUrl) {
                 outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>Please enter a Scribd URL.</span></div>`;
                 return;
@@ -222,72 +225,87 @@
 
             // Set loading state
             btn.disabled = true;
-            scribdUrlInput.disabled = true;
+            scribdUrlInput.disabled = true; // Disable input while processing
             btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
-            outputDiv.innerHTML = `<div class="message loading"><span>This usually takes 5-10 seconds. pls wait</span></div>`;
+            outputDiv.innerHTML = `<div class="message loading"><span>Generating link... This might take 5-15 seconds. Please wait.</span></div>`; // Updated loading message
 
             try {
-                // Call Vercel API function
+                // Call your backend API (Vercel function)
                 const response = await fetch('/api/getScribdLink', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ scribdUrl: scribdUrl })
+                    body: JSON.stringify({ scribdUrl: scribdUrl }) // Send the original URL
                 });
 
-                const result = await response.json();
+                const result = await response.json(); // Parse JSON response
 
                 if (!response.ok) {
+                    // Throw error to be caught by the catch block
                     throw new Error(result.error || `Request failed with status ${response.status}`);
                 }
 
                 if (result.downloadLink) {
-                    console.log("Successfully received direct link:", result.downloadLink);
+                    console.log("Successfully received direct download link:", result.downloadLink);
 
-                    // Extract Doc ID HERE using the user's original input URL
+                    // --- PREVIEW LOGIC ---
+                    // Attempt to extract Document ID from the *original user input URL*
                     const docId = extractDocIdFromUrl(scribdUrl);
-                    let previewButtonHtml = ''; // Initialize
+                    let previewButtonHtml = ''; // Initialize preview button HTML as empty string
 
                     if (docId) {
+                        // If docId is found, construct the preview URL
                         const previewUrl = `https://fscribd.com/embeds/${docId}/content`;
                         console.log("Constructed Preview URL:", previewUrl);
-                        // Generate the preview button HTML
+                        // Generate the HTML for the preview button
                         previewButtonHtml = `
                             <button id="preview-btn" class="preview-button" onclick="openPreview(this)" data-preview-url="${previewUrl}">
                                 Preview Document
                             </button>
                         `;
                     } else {
-                        console.error("Frontend failed to extract Doc ID even after backend success.");
+                        // Log if extraction failed, but don't show an error to the user here
+                        console.warn("Could not extract Document ID from the provided URL:", scribdUrl);
                     }
+                    // --- END PREVIEW LOGIC ---
 
-                    // ** CORRECTED ** Generate output including download AND preview buttons
+
+                    // --- DISPLAY RESULTS ---
+                    // Generate output HTML including download button and conditionally the preview button
                     outputDiv.innerHTML = `
                         <p class="result-label">Ready:</p>
                         <button id="download-btn" class="download-button" onclick="startDownload(this)" data-download-url="${result.downloadLink}">
                             Download Document
                         </button>
-                        ${previewButtonHtml} <!-- Insert the preview button HTML here -->
+                        ${previewButtonHtml} <!-- This inserts the preview button HTML if docId was found, otherwise inserts nothing -->
                         <div class="message success">
                             ${successIcon}
-                            <span>Link generated successfully. Click button above to download ${docId ? 'or preview' : ''}.</span>
+                            <span>Link generated successfully. Click button above to ${docId ? 'download or preview' : 'download'}.</span>
                         </div>
                     `;
+
                 } else {
-                    throw new Error(result.error || "Received success status but no link.");
+                    // Handle cases where the response is OK but doesn't contain the expected link
+                    throw new Error(result.error || "Received success status but no download link was found.");
                 }
 
             } catch (error) {
-                 // Handle errors
+                 // Handle errors (network, API, parsing, etc.)
                  console.error("Frontend Error:", error);
                  let userMessage = `Error: ${error.message || 'Failed to process request.'}`;
-                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) { userMessage = 'shit happens. Please click "Generate Link" to try again.'; }
-                 else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) { userMessage = `Error: ${error.message}. Please check the Scribd URL format and try again.`; }
+                 // Provide more specific user feedback for common errors
+                 if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504') || error.message.toLowerCase().includes('timeout')) {
+                     userMessage = 'The server took too long to respond or encountered an issue. Please click "Generate Link" again in a few moments.';
+                 }
+                 else if (error.message.includes('400') || error.message.toLowerCase().includes('invalid url') || error.message.toLowerCase().includes('unrecognized scribd url')) {
+                     userMessage = `Error: ${error.message}. Please check the Scribd URL format and ensure it's a valid document link.`;
+                 }
+                 // Display error message to the user
                  outputDiv.innerHTML = `<div class="message error">${errorIcon}<span>${userMessage}</span></div>`;
             } finally {
-                 // Re-enable button/input
+                 // Always re-enable the button and input field, regardless of success or error
                  btn.disabled = false;
                  scribdUrlInput.disabled = false;
-                 btn.innerHTML = 'Generate Link';
+                 btn.innerHTML = 'Generate Link'; // Reset button text
             }
         }
     </script>
