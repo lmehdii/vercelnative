@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
         page = await browser.newPage();
         console.log('[Vercel Fn] New page created.');
 
-        // --- Setup Listeners and Interception BEFORE navigation ---
+        // --- Setup Listeners and Intercption BEFORE navigation ---
         page.on('error', error => { console.error('Pptr: Page crashed:', error); processingError = processingError || error; });
         page.on('pageerror', error => { console.error('Pptr: Uncaught exception on page:', error); processingError = processingError || error; });
 
