@@ -12,7 +12,7 @@ function extractScribdInfo(url) {
      if (match && match[1]) { const docId = match[1]; const titleSlug = match[2] ? match[2].replace(/\/$/, '') : `document-${docId}`; const title = titleSlug.replace(/-/g, ' '); console.log(`[Vercel Fn] Extracted via primary regex: ID=${docId}, Slug=${titleSlug}`); return { docId, title, titleSlug }; } else { const genericMatch = /(?:[a-z]{2,3}\.)?scribd\.com\/.*\/(?:document|doc|presentation|book)\/(\d+)/; if (genericMatch && genericMatch[1]) { const docId = genericMatch[1]; const titleSlug = `document-${docId}`; const title = `Document ${docId}`; console.warn("[Vercel Fn] Used generic Scribd URL matching."); return { docId, title, titleSlug }; } else { console.error(`[Vercel Fn] Failed to match Scribd URL format: ${url}`); throw new Error('Invalid or unrecognized Scribd URL format.'); } }
 }
 function generateIlideLink(docId, titleSlug) {
-    const fileUrl = encodeURIComponent(`https://scribd.vdownloaders.com/pdownload/${docId}%2F${titleSlug}`); const titleWithSpaces = titleSlug.replace(/-/g, ' '); const encodedTitle = encodeURIComponent(`<div><p>${titleWithSpaces}</p></div>`); return `https://ilide.info/docgeneratev2?fileurl=${fileUrl}&title=${encodedTitle}&utm_source=scrfree&utm_medium=queue&utm_campaign=dl`;
+    const fileUrl = encodeURIComponent(`https://scribd.vdownloaders.com/download/${docId}%2F${titleSlug}`); const titleWithSpaces = titleSlug.replace(/-/g, ' '); const encodedTitle = encodeURIComponent(`<div><p>${titleWithSpaces}</p></div>`); return `https://ilide.info/docgeneratev2?fileurl=${fileUrl}&title=${encodedTitle}&utm_source=scrfree&utm_medium=queue&utm_campaign=dl`;
 }
 
 // --- Vercel Serverless Function Handler ---
