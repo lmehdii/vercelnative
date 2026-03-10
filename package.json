@@ -9,6 +9,6 @@
     "puppeteer-core": "^19.11.1"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   }
 }
